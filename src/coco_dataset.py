@@ -6,6 +6,8 @@ from PIL import Image
 from pycocotools.coco import COCO
 import numpy as np
 
+# code snippets from https://medium.com/fullstackai/how-to-train-an-object-detector-with-your-own-coco-dataset-in-pytorch-319e7090da5
+
 class Coco_Dataset(torch.utils.data.Dataset):
     def __init__(self, root, annotation, transforms=None, target_transforms=None):
         self.root = root
@@ -44,11 +46,9 @@ class Coco_Dataset(torch.utils.data.Dataset):
 
         if self.transforms is not None:
             img = self.transforms(img)
-
-        if self.target_transforms is not None:
             for i in range(len(masks)):
-                masks[i] = self.target_transforms(masks)
-
+                masks[i] = self.transforms(masks)
+            
         # Annotation is in dictionary format
         label_dict = {}
         label_dict["masks"] = masks
