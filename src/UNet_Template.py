@@ -4,14 +4,15 @@ from dataclasses import dataclass
 from typing import Union
 from pathlib import Path
 from modules import * 
+from temporal_modules import *
 
 
 @dataclass
 class RNN_UNetConfig:
     """Configuration for U-Net."""
-    out_channels: 2
-    encoder_blocks: [[3, 64, 64], [64, 128, 128], [128, 256, 256]]]
-    decoder_blocks: [[512, 256, 256], [256, 128, 128], [128, 64, 64]]
+    out_channels: int = 2
+    encoder_blocks: list[list[int]] = [[3, 64, 64], [64, 128, 128], [128, 256, 256]],
+    decoder_blocks: list[list[int]] = [[512, 256, 256], [256, 128, 128], [128, 64, 64]],
     dim: int = 2
     concat_hidden: bool = True
     use_pooling: bool = False
@@ -23,26 +24,41 @@ class RNN_UNetEncoder(nn.Module):
 
     def __init__(
         self,
-        dim: int,
         blocks: tuple[tuple[int, ...]],
         use_pooling: bool = False,
         batch_norm: bool = True,
     ) -> None:
-        super(UNetEncoder, self).__init__()
+
+        super(RNN_UNetEncoder, self).__init__()
         self.in_block = ConvBlock(blocks[0], batch_norm)
         self.downsample_blocks = nn.ModuleList(
             [DownsampleBlock(channels, use_pooling, batch_norm) for channels in blocks[1:]]
         )
 
+        conv_rnns = []
+        for channels in blocks:
+            in_size = channels[-1]
+            conv_rnns.append(Conv2dRNNCell(input_size=in_size, hidden_size=in_size, kernel_size=3))
+        
+        self.conv_rnn = nn.ModuleList(conv_rnns)
+
+        
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.in_block(x)
 
         hidden_states = []
-        for block in self.downsample_blocks:
-            hidden_states.append(x)
+        rnn_states = []
+        for block, c_rnn in zip(self.downsample_blocks, self.conv_rnn[:-1]):
+            # hidden_states.append(x)
             x = block(x)
+            # append rnn states for concatenation
+            rnn_states.append(c_rnn(x))
+        
+        # pass through the last conv rnn state
+        x = self.conv_rnn[-1](x)
 
-        return x, hidden_states
+        return x, hidden_states, rnn_states
 
 
 class RNN_UNetDecoder(nn.Module):
@@ -55,8 +71,8 @@ class RNN_UNetDecoder(nn.Module):
         batch_norm: bool = True,
         concat_hidden: bool = True,
     ) -> None:
-        super(UNetDecoder, self).__init__()
-        self.in_block = ConvBlock(block[0], batch_norm)
+        super(RNN_UNetDecoder, self).__init__()
+        self.in_block = ConvBlock(blocks[0], batch_norm)
         self.upsample_blocks = nn.ModuleList(
             [UpsampleBlock(channels, batch_norm, concat_hidden) for channels in blocks[1:]]
         )
@@ -69,17 +85,19 @@ class RNN_UNetDecoder(nn.Module):
 
         self.concat_hidden = concat_hidden
 
-    def forward(self, x: torch.Tensor, hidden_states: list[torch.Tensor]) -> torch.Tensor:
-        for block, h in zip(self.upsample_blocks, reversed(hidden_states)):
+    def forward(self, x: torch.Tensor, hidden_states: list[torch.Tensor], rnn_states: list[torch.Tensor]) -> torch.Tensor:
+        # for block, h, conv_rnn in zip(self.upsample_blocks, reversed(hidden_states), rnn_states):
+        for block, conv_rnn in zip(self.upsample_blocks, rnn_states):
             if self.concat_hidden:
                 x = block.upsample(x)
-                h = center_pad(h, x.shape[2:])
-                x = torch.cat([x, h], dim=1)
+                # conv_rnn = center_pad(conv_rnn, x.shape[2:])
+                x = torch.cat([x, conv_rnn], dim=1)
                 x = block.conv_block(x)
             else:
-                x = block(x)
-                h = center_pad(h, x.shape[2:])
-                x = x + h
+                x = block.upsample(x)
+                # conv_rnn = center_pad(conv_rnn, x.shape[2:])
+                x = x + conv_rnn
+                x = block.conv_block(x)
 
         return self.out_block(x)
 
@@ -87,18 +105,18 @@ class RNN_UNetDecoder(nn.Module):
 class RNN_UNet(nn.Module):
     """U-Net segmentation model."""
 
-    def __init__(self, config: UNetConfig) -> None:
-        super(UNet, self).__init__()
+    def __init__(self, config: RNN_UNetConfig) -> None:
+        super(RNN_UNet, self).__init__()
         self.config = config
 
-        self.encoder = UNetEncoder(
-            config.encoder_blocks, 
+        self.encoder = RNN_UNetEncoder(
+            config.encoder_blocks[0], 
             config.use_pooling, 
             config.batch_norm
         )
-        self.decoder = UNetDecoder(
+        self.decoder = RNN_UNetDecoder(
             config.out_channels,
-            config.decoder_blocks,
+            config.decoder_blocks[0],
             config.batch_norm,
             config.concat_hidden,
         )
@@ -107,8 +125,8 @@ class RNN_UNet(nn.Module):
         self.decoder.apply(init_weights)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x, hidden_states = self.encoder(x)
-        x = self.decoder(x, hidden_states)
+        x, hidden_states, rnn_states = self.encoder(x)
+        x = self.decoder(x, hidden_states, rnn_states)
         return x
 
     def save(self, path: str) -> None:
