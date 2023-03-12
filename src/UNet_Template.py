@@ -121,26 +121,19 @@ class RNN_UNet(nn.Module):
             config.concat_hidden,
         )
 
-        self.encoder.apply(init_weights)
-        self.decoder.apply(init_weights)
+        # self.encoder.apply(init_weights)
+        # self.decoder.apply(init_weights)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x, hidden_states, rnn_states = self.encoder(x)
-        x = self.decoder(x, hidden_states, rnn_states)
-        return x
+        # loop over sequence
+        outputs = []
+        for i in range(x.shape[1]):
+            out, hidden_states, rnn_states = self.encoder(x[:, i])
+            out = self.decoder(out, hidden_states, rnn_states)
+            outputs.append(out)
+        
+        outputs = torch.stack(outputs, dim=1)
+        return outputs[:, -1]
 
     def save(self, path: str) -> None:
         torch.save(self.state_dict(), path)
-
-    # @classmethod
-    # def from_pretrained(cls, path: str, config: Union[UNetConfig, str, None] = None) -> "UNet":
-    #     path = Path(path)
-
-    #     if config is None:
-    #         config = UNetConfig.from_file(path.parent / "model.yaml")
-    #     elif not isinstance(config, UNetConfig):
-    #         config = UNetConfig.from_file(config)
-
-    #     model = cls(config)
-    #     model.load_state_dict(torch.load(path, map_location=idist.device()))
-    #     return model
