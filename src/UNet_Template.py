@@ -12,6 +12,7 @@ class RNN_UNetConfig:
     """Configuration for U-Net."""
     out_channels: int = 2
     encoder_blocks: list[list[int]] = [[3, 64, 64], [64, 128, 128], [128, 256, 256]],
+    # these are the dimensions for concatenation, if summing is wanted, reduce the first dimension for each block
     decoder_blocks: list[list[int]] = [[512, 256, 256], [256, 128, 128], [128, 64, 64]],
     dim: int = 2
     concat_hidden: bool = True
@@ -51,9 +52,10 @@ class RNN_UNetEncoder(nn.Module):
         rnn_states = []
         for block, c_rnn in zip(self.downsample_blocks, self.conv_rnn[:-1]):
             # hidden_states.append(x)
+            # pass through RNN 
+            rnn_states.append(c_rnn(x))
             x = block(x)
             # append rnn states for concatenation
-            rnn_states.append(c_rnn(x))
         
         # pass through the last conv rnn state
         x = self.conv_rnn[-1](x)
@@ -85,12 +87,13 @@ class RNN_UNetDecoder(nn.Module):
 
         self.concat_hidden = concat_hidden
 
-    def forward(self, x: torch.Tensor, hidden_states: list[torch.Tensor], rnn_states: list[torch.Tensor]) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, rnn_states: list[torch.Tensor]) -> torch.Tensor:
         # for block, h, conv_rnn in zip(self.upsample_blocks, reversed(hidden_states), rnn_states):
-        for block, conv_rnn in zip(self.upsample_blocks, rnn_states):
+        for block, conv_rnn in zip(self.upsample_blocks, reversed(rnn_states)):
             if self.concat_hidden:
                 x = block.upsample(x)
                 # conv_rnn = center_pad(conv_rnn, x.shape[2:])
+                
                 x = torch.cat([x, conv_rnn], dim=1)
                 x = block.conv_block(x)
             else:
@@ -127,9 +130,10 @@ class RNN_UNet(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # loop over sequence
         outputs = []
+        # x is Batch x Sequence x Channel x Height x Width
         for i in range(x.shape[1]):
             out, hidden_states, rnn_states = self.encoder(x[:, i])
-            out = self.decoder(out, hidden_states, rnn_states)
+            out = self.decoder(out, rnn_states)
             outputs.append(out)
         
         outputs = torch.stack(outputs, dim=1)

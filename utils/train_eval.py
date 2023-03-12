@@ -11,7 +11,7 @@ import utils
 class Trainer(nn.Module):
 
     def __init__(self,  model, optimizer, criterion, train_loader, 
-        valid_loader, epochs, scheduler=None, tboard_name=None, start_epoch=0, 
+        valid_loader, epochs, scheduler=None, sequence=True, tboard_name=None, start_epoch=0, 
         all_labels=None, print_intermediate_vals=False, model_name="") -> None:
         super().__init__()
         
@@ -23,6 +23,7 @@ class Trainer(nn.Module):
         self.criterion = criterion
         self.train_loader = train_loader
         self.valid_loader = valid_loader
+        self.sequence = sequence
 
         if scheduler == None:
             self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, "min")
@@ -58,8 +59,6 @@ class Trainer(nn.Module):
         for i, (images, labels) in progress_bar:
             images = images.to(self.device)
             labels = labels.to(self.device)
-            print(images.shape)
-            print(labels.shape)
             
             # Clear gradients w.r.t. parameters
             self.optimizer.zero_grad()
@@ -101,19 +100,20 @@ class Trainer(nn.Module):
         for images, labels in self.valid_loader:
             images = images.to(self.device)
             labels = labels.to(self.device)
-            
-            print(images.shape)
-            print(labels.shape)
+        
 
-            # Forward pass only to get logits/output
-            outputs = self.model(images)
+            if self.sequence == True:
+                # Forward pass only to get logits/output
+                outputs = self.model(images)
+            else:
+                outputs = self.model(images.unsqueeze(1))
                     
-            loss = self.criterion(outputs, labels)
+            loss = self.criterion(outputs, torch.tensor(labels, dtype=torch.long).squeeze())
             loss_list.append(loss.item())
                 
             # Get predictions from the maximum value
             preds = torch.argmax(outputs, dim=1)
-            correct += len( torch.where(preds==labels)[0] )
+            correct += len( torch.where(preds==labels)[0])
             total += len(labels)
 
             # confusion matrix
@@ -129,16 +129,11 @@ class Trainer(nn.Module):
         return accuracy, loss
 
 
-    def count_model_params(self):
-        """ Counting the number of learnable parameters in a nn.Module """
-        num_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
-        return num_params
-
-
     def train_model(self):
         """ Training a model for a given number of epochs"""
         
         start = time.time()
+        self.model = self.model.to(self.device)
         
         for epoch in range(self.epochs):
             
@@ -192,3 +187,7 @@ class Trainer(nn.Module):
             )
         self.train_loss, self.val_loss, self.loss_iters, self.valid_acc, self.conf_mat = self.stats
 
+    def count_model_params(self):
+        """ Counting the number of learnable parameters in a nn.Module """
+        num_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        return num_params

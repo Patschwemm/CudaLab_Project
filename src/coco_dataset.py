@@ -53,6 +53,14 @@ class Coco_Dataset(torch.utils.data.Dataset):
         if self.transforms != None:
             img = self.transforms(img)
 
+        print("img.shape in getitem ", img.shape)
+
+        if img.shape[0] == 1:
+            # Convert grayscale image to RGB
+            img = torch.stack([img[0]] * 3, dim=0)
+
+
+
         # create segmentation mask
         seg_mask = torch.zeros((1, img.shape[1], img.shape[2]))
 
@@ -71,6 +79,8 @@ class Coco_Dataset(torch.utils.data.Dataset):
             
             label = coco_annotation[i]['category_id']
             # Conflict: Adding labels together results to mixup of labels
+            # idx = mask[mask > 0]
+            # seg_mask[idx] = label
             seg_mask = seg_mask + mask * label
 
             masks.append(mask)
