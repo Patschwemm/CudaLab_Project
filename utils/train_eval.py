@@ -50,7 +50,6 @@ class Trainer(nn.Module):
         self.valid_acc = []
         self.conf_mat = None
 
-    @classmethod
     def train_epoch(self, current_epoch):
         """ Training a model for one epoch """
         
@@ -63,11 +62,15 @@ class Trainer(nn.Module):
             # Clear gradients w.r.t. parameters
             self.optimizer.zero_grad()
             
-            # Forward pass to get output/logits
-            outputs = self.model(images)
+            # sequence if necessary for single images
+            if self.sequence == True:
+                # Forward pass only to get logits/output
+                outputs = self.model(images)
+            else:
+                outputs = self.model(images.unsqueeze(1))
             
             # Calculate Loss: softmax --> cross entropy loss
-            loss = self.criterion(outputs, labels)
+            loss = self.criterion(outputs, torch.tensor(labels, dtype=torch.long).squeeze())
             loss_list.append(loss.item())
             
             # Getting gradients w.r.t. parameters
@@ -101,7 +104,7 @@ class Trainer(nn.Module):
             images = images.to(self.device)
             labels = labels.to(self.device)
         
-
+            # sequence if necessary for single images
             if self.sequence == True:
                 # Forward pass only to get logits/output
                 outputs = self.model(images)
@@ -178,6 +181,7 @@ class Trainer(nn.Module):
             [self.train_loss, self.val_loss, self.loss_iters, self.valid_acc, self.conf_mat],
             self.model_name
             )
+            
 
     def load_model(self):
         self.model, self.optimizer, self.start_epoch, self.stats = utils.load_model(

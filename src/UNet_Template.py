@@ -46,6 +46,7 @@ class RNN_UNetEncoder(nn.Module):
         
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        print(x.shape)
         x = self.in_block(x)
 
         hidden_states = []
