@@ -54,7 +54,7 @@ class Coco_Dataset(torch.utils.data.Dataset):
         if self.transforms != None:
             img = self.transforms(img)
 
-        print("img.shape in getitem ", img.shape)
+        # print("img.shape in getitem ", img.shape)
 
         if img.shape[0] == 1:
             # Convert grayscale image to RGB
@@ -71,7 +71,7 @@ class Coco_Dataset(torch.utils.data.Dataset):
         # get masks and according labels 
         masks, labels = [], []
         for i in range(num_objs):
-            obj_mask = coco.annToobj_(ann=coco_annotation[i])
+            obj_mask = coco.annToMask(ann=coco_annotation[i])
             # transform mask:
             if self.target_transforms != None:
                 # transform to PIL type for a resize 
