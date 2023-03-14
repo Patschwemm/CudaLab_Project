@@ -5,6 +5,7 @@ import torchvision.transforms as T
 from PIL import Image
 from pycocotools.coco import COCO
 import numpy as np
+import matplotlib.pyplot as plt
 
 # code snippets from https://medium.com/fullstackai/how-to-train-an-object-detector-with-your-own-coco-dataset-in-pytorch-319e7090da5
 
@@ -70,18 +71,20 @@ class Coco_Dataset(torch.utils.data.Dataset):
         # get masks and according labels 
         masks, labels = [], []
         for i in range(num_objs):
-            mask = coco.annToMask(ann=coco_annotation[i])
+            obj_mask = coco.annToobj_(ann=coco_annotation[i])
             # transform mask:
             if self.target_transforms != None:
                 # transform to PIL type for a resize 
-                mask = Image.fromarray(mask)
-                mask = self.target_transforms(mask)
+                obj_mask = Image.fromarray(obj_mask)
+                obj_mask = self.target_transforms(obj_mask) 
             
             label = coco_annotation[i]['category_id']
+            # Because of to Tensor the obj_mask is not of values 0 and 1 anymore
+            # -> get new mask and replace pixel values with labels
+            mask = (obj_mask > 0)
+            seg_mask[mask] = label
             # Conflict: Adding labels together results to mixup of labels
-            # idx = mask[mask > 0]
-            # seg_mask[idx] = label
-            seg_mask = seg_mask + mask * label
+            # seg_mask = seg_mask + (mask * 255) * label
 
             masks.append(mask)
             labels.append(label)
