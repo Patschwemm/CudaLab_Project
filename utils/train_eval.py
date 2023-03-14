@@ -116,7 +116,7 @@ class Trainer(nn.Module):
                 
             # Get predictions from the maximum value
             preds = torch.argmax(outputs, dim=1)
-            correct += len( torch.where(preds==labels)[0])
+            correct += len(torch.where(preds==labels)[0])
             total += len(labels)
 
             # confusion matrix
@@ -154,7 +154,7 @@ class Trainer(nn.Module):
             # training epoch
             self.model.train()  # important for dropout and batch norms
             mean_loss, cur_loss_iters = self.train_epoch(epoch)
-            self.scheduler.step()
+            self.scheduler.step(self.val_loss[-1])
             self.train_loss.append(mean_loss)
 
             # if we want to use tensroboard
@@ -163,21 +163,23 @@ class Trainer(nn.Module):
 
             self.loss_iters = self.loss_iters + cur_loss_iters
             
-            if(epoch % 5 == 0 or epoch==self.epochs-1) and self.print_intermediate_vals:
+            if self.print_intermediate_vals: # and epoch % 5 == 0 or epoch==self.epochs-1):
                 print(f"Epoch {epoch+1}/{self.epochs}")
                 print(f"    Train loss: {round(mean_loss, 5)}")
                 print(f"    Valid loss: {round(loss, 5)}")
                 print(f"    Accuracy: {accuracy}%")
                 print("\n")
+
+            self.save_model(self.start_epoch + epoch)
         
         end = time.time()
         print(f"Training completed after {(end-start)/60:.2f}min")
 
-    def save_model(self):
+    def save_model(self, current_epoch):
         utils.save_model(
             self.model, 
             self.optimizer, 
-            self.epochs, 
+            current_epoch,
             [self.train_loss, self.val_loss, self.loss_iters, self.valid_acc, self.conf_mat],
             self.model_name
             )
@@ -187,8 +189,9 @@ class Trainer(nn.Module):
         self.model, self.optimizer, self.start_epoch, self.stats = utils.load_model(
             self.model, 
             self.optimizer, 
-            f"models/checkpoint_{self.model.__class__.__name__}{self.model_name}_epoch_{self.epoch}.pth"
+            f"models/checkpoint_{self.model.__class__.__name__}{self.model_name}_epoch_{self.start_epoch - 1}.pth"
             )
+        self.model.to(self.device)
         self.train_loss, self.val_loss, self.loss_iters, self.valid_acc, self.conf_mat = self.stats
 
     def count_model_params(self):
