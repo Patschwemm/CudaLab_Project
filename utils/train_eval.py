@@ -47,7 +47,7 @@ class Trainer(nn.Module):
         self.train_loss = []
         self.val_loss =  []
         self.loss_iters = []
-        self.valid_acc = []
+        self.valid_mIoU = []
         self.conf_mat = None
 
     def train_epoch(self, current_epoch):
@@ -59,8 +59,6 @@ class Trainer(nn.Module):
             images = images.to(self.device)
             labels = labels.to(self.device)
 
-            
-            
             # Clear gradients w.r.t. parameters
             self.optimizer.zero_grad()
             
@@ -96,16 +94,16 @@ class Trainer(nn.Module):
         correct = 0
         total = 0
         loss_list = []
-
+        epsilon = 1e-6
 
         if self.all_labels != None:
-            self.conf_mat = torch.zeros((len(self.all_labels), len(self.all_labels)))
+            self.conf_mat = torch.zeros(self.all_labels, self.all_labels)
         else:
             self.conf_mat == None
         
         for images, labels in self.valid_loader:
             images = images.to(self.device)
-            labels = labels.to(self.device)
+            labels = labels.to(self.device).to(torch.long)
         
             # sequence if necessary for single images
             if self.sequence == True:
@@ -114,25 +112,25 @@ class Trainer(nn.Module):
             else:
                 outputs = self.model(images.unsqueeze(1))
                     
+            preds = torch.argmax(outputs, dim=1).to(torch.long)
             loss = self.criterion(outputs.squeeze(), labels.squeeze())
             loss_list.append(loss.item())
-                
-            # Get predictions from the maximum value
-            preds = torch.argmax(outputs, dim=1)
-            correct += len(torch.where(preds==labels)[0])
-            total += len(labels)
 
-            # confusion matrix
+            # mIoU
+            preds = preds.squeeze().view(-1)
+            labels = labels.squeeze().view(-1)
+
             if self.all_labels!= None:
                 self.conf_mat += confusion_matrix(
                     y_true=labels.cpu().numpy(), y_pred=preds.cpu().numpy(), 
-                    labels=np.arange(0, len(self.all_labels), 1)
-                    )
+                    labels=np.arange(0, self.all_labels, 1)
+                )
 
-        # Total correct predictions and loss
-        accuracy = correct / total * 100
+        iou = self.conf_mat.diag() / (self.conf_mat.sum(axis=1) + self.conf_mat.sum(axis=0) - self.conf_mat.diag() + epsilon)
+        mIoU = iou.mean()
+        print("mIoU:", mIoU)
         loss = np.mean(loss_list)
-        return accuracy, loss
+        return mIoU, loss
 
 
     def train_model(self):
@@ -145,13 +143,13 @@ class Trainer(nn.Module):
             
             # validation epoch
             self.model.eval()  # important for dropout and batch norms
-            accuracy, loss = self.eval_model()
-            self.valid_acc.append(accuracy)
+            mIoU, loss = self.eval_model()
+            self.valid_mIoU.append(mIoU)
             self.val_loss.append(loss)
 
             # if we want to use tensorboard
             if self.tboard !=None:
-                self.tboard.add_scalar(f'Accuracy/Valid', accuracy, global_step=epoch+self.start_epoch)
+                self.tboard.add_scalar(f'mIoU/Valid', mIoU, global_step=epoch+self.start_epoch)
                 self.tboard.add_scalar(f'Loss/Valid', loss, global_step=epoch+self.start_epoch)
             
             # training epoch
@@ -170,7 +168,7 @@ class Trainer(nn.Module):
                 print(f"Epoch {epoch+1}/{self.epochs}")
                 print(f"    Train loss: {round(mean_loss, 5)}")
                 print(f"    Valid loss: {round(loss, 5)}")
-                print(f"    Accuracy: {accuracy}%")
+                print(f"    mIoU: {mIoU}%")
                 print("\n")
 
             self.save_model(self.start_epoch + epoch)
@@ -183,7 +181,7 @@ class Trainer(nn.Module):
             self.model, 
             self.optimizer, 
             current_epoch,
-            [self.train_loss, self.val_loss, self.loss_iters, self.valid_acc, self.conf_mat],
+            [self.train_loss, self.val_loss, self.loss_iters, self.valid_mIoU, self.conf_mat],
             self.model_name
             )
             
@@ -195,7 +193,7 @@ class Trainer(nn.Module):
             f"models/checkpoint_{self.model.__class__.__name__}{self.model_name}_epoch_{self.start_epoch - 1}.pth"
             )
         self.model.to(self.device)
-        self.train_loss, self.val_loss, self.loss_iters, self.valid_acc, self.conf_mat = self.stats
+        self.train_loss, self.val_loss, self.loss_iters, self.valid_mIoU, self.conf_mat = self.stats
 
     def count_model_params(self):
         """ Counting the number of learnable parameters in a nn.Module """
