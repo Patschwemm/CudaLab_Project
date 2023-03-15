@@ -10,7 +10,7 @@ from temporal_modules import *
 @dataclass
 class RNN_UNetConfig:
     """Configuration for U-Net."""
-    out_channels: int = 2
+    out_channels: int = 1
     encoder_blocks: list[list[int]] = [[3, 64, 64], [64, 128, 128], [128, 256, 256]],
     # these are the dimensions for concatenation, if summing is wanted, reduce the first dimension for each block
     decoder_blocks: list[list[int]] = [[512, 256, 256], [256, 128, 128], [128, 64, 64]],
@@ -46,7 +46,6 @@ class RNN_UNetEncoder(nn.Module):
         
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        print(x.shape)
         x = self.in_block(x)
 
         hidden_states = []

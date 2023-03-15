@@ -58,6 +58,8 @@ class Trainer(nn.Module):
         for i, (images, labels) in progress_bar:
             images = images.to(self.device)
             labels = labels.to(self.device)
+
+            
             
             # Clear gradients w.r.t. parameters
             self.optimizer.zero_grad()
@@ -95,6 +97,7 @@ class Trainer(nn.Module):
         total = 0
         loss_list = []
 
+
         if self.all_labels != None:
             self.conf_mat = torch.zeros((len(self.all_labels), len(self.all_labels)))
         else:
@@ -111,7 +114,7 @@ class Trainer(nn.Module):
             else:
                 outputs = self.model(images.unsqueeze(1))
                     
-            loss = self.criterion(outputs, torch.tensor(labels, dtype=torch.long).squeeze())
+            loss = self.criterion(outputs.squeeze(), labels.squeeze())
             loss_list.append(loss.item())
                 
             # Get predictions from the maximum value
