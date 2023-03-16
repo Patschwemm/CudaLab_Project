@@ -128,7 +128,6 @@ class Trainer(nn.Module):
 
         iou = self.conf_mat.diag() / (self.conf_mat.sum(axis=1) + self.conf_mat.sum(axis=0) - self.conf_mat.diag() + epsilon)
         mIoU = iou.mean()
-        print("mIoU:", mIoU)
         loss = np.mean(loss_list)
         return mIoU, loss
 
@@ -190,9 +189,9 @@ class Trainer(nn.Module):
         self.model, self.optimizer, self.start_epoch, self.stats = utils.load_model(
             self.model, 
             self.optimizer, 
-            f"models/checkpoint_{self.model.__class__.__name__}{self.model_name}_epoch_{self.start_epoch - 1}.pth"
-            )
-        self.model.to(self.device)
+            f"models/checkpoint_{self.model.__class__.__name__}{self.model_name}_epoch_{self.start_epoch - 1}.pth",
+            self.device
+        )
         self.train_loss, self.val_loss, self.loss_iters, self.valid_mIoU, self.conf_mat = self.stats
 
     def count_model_params(self):

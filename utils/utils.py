@@ -126,15 +126,31 @@ def save_model(model, optimizer, epoch, stats, model_name=""):
     }, savepath)
     return
 
+def optimizer_to(optim, device):
+    for param in optim.state.values():
+        # Not sure there are any global tensors in the state dict
+        if isinstance(param, torch.Tensor):
+            param.data = param.data.to(device)
+            if param._grad is not None:
+                param._grad.data = param._grad.data.to(device)
+        elif isinstance(param, dict):
+            for subparam in param.values():
+                if isinstance(subparam, torch.Tensor):
+                    subparam.data = subparam.data.to(device)
+                    if subparam._grad is not None:
+                        subparam._grad.data = subparam._grad.data.to(device)
 
-def load_model(model, optimizer, savepath):
+
+def load_model(model, optimizer, savepath, device):
     """ Loading pretrained checkpoint """
 
-    checkpoint = torch.load(savepath)
+    checkpoint = torch.load(savepath, map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
     epoch = checkpoint["epoch"]
     stats = checkpoint["stats"]
+    model = model.to(device)
+    optimizer_to(optimizer, device)
 
     return model, optimizer, epoch, stats
 
@@ -144,7 +160,7 @@ def make_tboard_logs(dirname):
     if not os.path.exists(TBOARD_LOGS):
         os.makedirs(TBOARD_LOGS)
 
-    shutil.rmtree(TBOARD_LOGS)
+    # shutil.rmtree(TBOARD_LOGS)
     writer = SummaryWriter(TBOARD_LOGS)
 
     print(TBOARD_LOGS)
@@ -167,5 +183,3 @@ def optimizer_to(optim, device):
                     subparam.data = subparam.data.to(device)
                     if subparam._grad is not None:
                         subparam._grad.data = subparam._grad.data.to(device)
-
-
