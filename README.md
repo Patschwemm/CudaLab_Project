@@ -19,10 +19,10 @@ Follow install from given github for python.
 ### TO-DO subtasks
 
 - [] Implement Accuracy correctly (mAcc)
-- [] Implement mIoU
-- [] City-scapes dataset sequencing
-    - [] Pytorch dataset implementation -> Sort and sequence
-    - [] 5 options for the ground truth (Since it's 5 frame sequences)
+- [x] Implement mIoU -> Metric apparently correctly implemented, but training on COCO doesn't show much improvement. Bug? Or requires more training?
+- [x] City-scapes dataset sequencing
+    - [x] Pytorch dataset implementation -> Sort and sequence
+    - [x] 5 options for the ground truth (Since it's 5 frame sequences)
 - [] Temporal Augmentation
 - [] Get baseline results (Frame by frame)
 - [] Get results sequenced manner
