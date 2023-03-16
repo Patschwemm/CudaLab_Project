@@ -77,7 +77,6 @@ class cityscapesLoader(data.Dataset):
         is_transform=False,
         is_sequence=True,
         img_size=(256, 512),
-        sequence_length = 5,
         use_default_aug=False,
         img_norm=True,
         version="cityscapes",
@@ -98,7 +97,7 @@ class cityscapesLoader(data.Dataset):
         if is_sequence:
             self.images_base = os.path.join(self.root, "leftImg8bit_sequence", self.split)
             self.annotations_base = os.path.join(self.root, "gtFine_sequence", self.split)
-            self.sequence_length = sequence_length
+            self.sequence_length = 5 if self.split == 'train' else 12
         else:
             self.images_base = os.path.join(self.root, "leftImg8bit", self.split)
             self.annotations_base = os.path.join(self.root, "gtFine", self.split)
@@ -176,7 +175,7 @@ class cityscapesLoader(data.Dataset):
             os.path.basename(img_paths[0])[:-22] + "000019_gtFine_labelIds.png",
         )
 
-        #  Only works correctly for sequence lenghts less than the GT idx (19)
+        # Only works correctly for sequence lenghts less than the GT idx (19)
         # In this case, by default, it's 5
         start_idx_sequence = 19 - np.random.randint(self.sequence_length)
 
@@ -194,8 +193,6 @@ class cityscapesLoader(data.Dataset):
         #     lbl = self.encode_segmap(np.array(lbl, dtype=np.uint8))
         # else:
         #     lbl = np.zeros((img.shape[0], img.shape[1]), dtype=np.uint8)
-
-        
 
         if self.is_transform:
             for i in range(len(imgs)):
@@ -248,8 +245,7 @@ class cityscapesLoader(data.Dataset):
             cf = np.random.uniform(0.8, 1.2)
             sf = np.random.uniform(0.8, 1.2)
             hf = np.random.uniform(-0.2, 0.2)
-            pflip = np.random.randint(0,1) > 0.5
-            
+            pflip = np.random.uniform(0, 1) > 0.5
 
             # H-flip
             if pflip == True:
