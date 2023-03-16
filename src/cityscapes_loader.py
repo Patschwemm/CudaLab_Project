@@ -77,6 +77,7 @@ class cityscapesLoader(data.Dataset):
         is_transform=False,
         is_sequence=True,
         img_size=(256, 512),
+        sequence_length = 5,
         use_default_aug=False,
         img_norm=True,
         version="cityscapes",
@@ -97,6 +98,7 @@ class cityscapesLoader(data.Dataset):
         if is_sequence:
             self.images_base = os.path.join(self.root, "leftImg8bit_sequence", self.split)
             self.annotations_base = os.path.join(self.root, "gtFine_sequence", self.split)
+            self.sequence_length = sequence_length
         else:
             self.images_base = os.path.join(self.root, "leftImg8bit", self.split)
             self.annotations_base = os.path.join(self.root, "gtFine", self.split)
@@ -173,8 +175,13 @@ class cityscapesLoader(data.Dataset):
             
             os.path.basename(img_paths[0])[:-22] + "000019_gtFine_labelIds.png",
         )
+
+        #  Only works correctly for sequence lenghts less than the GT idx (19)
+        # In this case, by default, it's 5
+        start_idx_sequence = 19 - np.random.randint(self.sequence_length)
+
         imgs = []
-        for img_path in img_paths:
+        for img_path in img_paths[start_idx_sequence : start_idx_sequence + self.sequence_length]:
             img = Image.open(img_path)
             img = np.array(img, dtype=np.uint8)
             imgs.append(img)
