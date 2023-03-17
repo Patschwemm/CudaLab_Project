@@ -105,14 +105,9 @@ class Trainer(nn.Module):
             images = images.to(self.device)
             labels = labels.to(self.device)
         
-<<<<<<< HEAD
 
             outputs, loss = self.train_fn(images, labels)
         
-=======
-            preds, loss = self.train_fn(images, labels)
-                    
->>>>>>> 265c20b1eb736060bf2906a953483897d2994ed8
             loss_list.append(loss.item())
 
             preds = torch.argmax(outputs, dim=2)
@@ -202,7 +197,6 @@ class Trainer(nn.Module):
     def coco_train(self, images, labels):
         # sequence if necessary for single images
         outputs = self.model(images.unsqueeze(1))
-<<<<<<< HEAD
 
         print(outputs.shape, labels.shape)
         print(outputs.shape)
@@ -211,9 +205,6 @@ class Trainer(nn.Module):
         print(outputs.squeeze().shape, labels.squeeze().shape)
         loss = self.criterion(outputs.squeeze(), labels.squeeze().long())
 
-=======
-        loss = self.criterion(outputs.squeeze(), labels.squeeze())
->>>>>>> 265c20b1eb736060bf2906a953483897d2994ed8
         return outputs, loss
 
     def cityscapes_train(self, images, labels):
