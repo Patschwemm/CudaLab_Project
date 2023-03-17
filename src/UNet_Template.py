@@ -36,31 +36,32 @@ class RNN_UNetEncoder(nn.Module):
             [DownsampleBlock(channels, use_pooling, batch_norm) for channels in blocks[1:]]
         )
 
-        conv_rnns = []
+        temporal_conv = []
         for channels in blocks:
             in_size = channels[-1]
-            conv_rnns.append(Conv2dRNNCell(input_size=in_size, hidden_size=in_size, kernel_size=3))
+            temporal_conv.append(Conv2dRNNCell(input_size=in_size, hidden_size=in_size, kernel_size=3))
         
-        self.conv_rnn = nn.ModuleList(conv_rnns)
+        self.temporal_conv = nn.ModuleList(temporal_conv)
 
-        
+    def freeze_temporal(self):
+        self.temporal_conv = self.temporal_conv.requires_grad_(False)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.in_block(x)
 
         hidden_states = []
-        rnn_states = []
-        for block, c_rnn in zip(self.downsample_blocks, self.conv_rnn[:-1]):
+        temporal_states = []
+        for block, c_rnn in zip(self.downsample_blocks, self.temporal_conv[:-1]):
             # hidden_states.append(x)
             # pass through RNN 
-            rnn_states.append(c_rnn(x))
+            temporal_states.append(c_rnn(x))
             x = block(x)
             # append rnn states for concatenation
         
         # pass through the last conv rnn state
-        x = self.conv_rnn[-1](x)
+        x = self.temporal_conv[-1](x)
 
-        return x, hidden_states, rnn_states
+        return x, hidden_states, temporal_states
 
 
 class RNN_UNetDecoder(nn.Module):
@@ -88,19 +89,19 @@ class RNN_UNetDecoder(nn.Module):
 
         self.concat_hidden = concat_hidden
 
-    def forward(self, x: torch.Tensor, rnn_states: list[torch.Tensor]) -> torch.Tensor:
-        # for block, h, conv_rnn in zip(self.upsample_blocks, reversed(hidden_states), rnn_states):
-        for block, conv_rnn in zip(self.upsample_blocks, reversed(rnn_states)):
+    def forward(self, x: torch.Tensor, temporal_states: list[torch.Tensor]) -> torch.Tensor:
+        # for block, h, conv_rnn in zip(self.upsample_blocks, reversed(hidden_states), temporal_states):
+        for block, temporal_conv in zip(self.upsample_blocks, reversed(temporal_states)):
             if self.concat_hidden:
                 x = block.upsample(x)
-                # conv_rnn = center_pad(conv_rnn, x.shape[2:])
+                # temporal_conv = center_pad(temporal_conv, x.shape[2:])
                 
-                x = torch.cat([x, conv_rnn], dim=1)
+                x = torch.cat([x, temporal_conv], dim=1)
                 x = block.conv_block(x)
             else:
                 x = block.upsample(x)
-                # conv_rnn = center_pad(conv_rnn, x.shape[2:])
-                x = x + conv_rnn
+                # temporal_conv = center_pad(temporal_conv, x.shape[2:])
+                x = x + temporal_conv
                 x = block.conv_block(x)
 
         return self.out_block(x)
@@ -138,8 +139,9 @@ class RNN_UNet(nn.Module):
         outputs = []
         # x is Batch x Sequence x Channel x Height x Width
         for i in range(x.shape[1]):
-            out, hidden_states, rnn_states = self.encoder(x[:, i])
-            out = self.decoder(out, rnn_states)
+            print(x.shape)
+            out, hidden_states, temporal_states = self.encoder(x[:, i])
+            out = self.decoder(out, temporal_states)
             outputs.append(out)
         
         outputs = torch.stack(outputs, dim=1)
@@ -149,11 +151,14 @@ class RNN_UNet(nn.Module):
         torch.save(self.state_dict(), path)
 
     def replace_outchannels(self,  out_channels):
-        
-        print(self.out_block_in_channels)
+        # replaces the last layer of the outchannels, such that the model can be adjusted to only 
+        # output a certain amount of layers
         self.decoder.out_block = nn.Conv2d(
             in_channels=self.out_block_in_channels,
             out_channels=out_channels,
             kernel_size=3,
             padding=1,
         )
+
+    def freeze_temporal(self):
+        self.encoder.freeze_temporal()

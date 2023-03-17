@@ -24,12 +24,14 @@ class Trainer(nn.Module):
         self.train_loader = train_loader
         self.valid_loader = valid_loader
         self.sequence = sequence
+        self.train_set = train_set
 
-        if train_set == "coco":
+        if self.train_set == "coco":
             self.train_fn = self.coco_train
-        elif train_set == "cityscapes":
+        elif self.train_set == "cityscapes":
             self.train_fn = self.cityscapes_train
-
+        else:
+            assert ((train_set == "coco") | (train_set == "cityscapes")),  "Not a valid train set. Valid train sets are coco or cityscapes."
 
         if scheduler == None:
             self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, "min")
@@ -103,8 +105,11 @@ class Trainer(nn.Module):
         
         for images, labels in self.valid_loader:
             images = images.to(self.device)
-            labels = labels.to(self.device)
-        
+            
+            if self.train_set == "cityscapes":
+                labels = (labels[0], labels[1].to(self.device))
+            else:
+                labels = labels.to(self.device)
 
             outputs, loss = self.train_fn(images, labels)
         
@@ -198,28 +203,27 @@ class Trainer(nn.Module):
         # sequence if necessary for single images
         outputs = self.model(images.unsqueeze(1))
 
-        print(outputs.shape, labels.shape)
-        print(outputs.shape)
-        # preds = torch.argmax(outputs, dim=2)
-
-        print(outputs.squeeze().shape, labels.squeeze().shape)
         loss = self.criterion(outputs.squeeze(), labels.squeeze().long())
 
         return outputs, loss
 
     def cityscapes_train(self, images, labels):
+
+        # extract label tuple
+        gt_idx = labels[0]
+        assert gt_idx.dtype == torch.int64 , f"Expected to be the index of ground truth, got f{gt_idx} instead."
+        seg_mask = labels[1]
+
         # sequence if necessary for single images
         if self.sequence == True:
             # Forward pass only to get logits/output
             outputs = self.model(images)
-        else:
-            outputs = self.model(images.unsqueeze(1))
-        
-        # dataset is given with 
-        gt_idx = labels[0]
-        assert gt_idx.size() == (1,), f"Expected to be the index of ground truth, got f{gt_idx} instead."
-        labels = labels[1]
+            loss = self.criterion(outputs[:, gt_idx].squeeze(), seg_mask.squeeze())
 
-        loss = self.criterion(outputs[:, gt_idx].squeeze(), labels.squeeze())
+        else:
+            print("normal shape: ", images.shape)
+            print("image with gt idx ", images[gt_idx])
+            outputs = self.model(images[:, gt_idx, :, :, :])
+            loss = self.criterion(outputs.squeeze(), seg_mask.squeeze())
 
         return outputs, loss

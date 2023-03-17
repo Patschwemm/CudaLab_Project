@@ -93,6 +93,7 @@ class cityscapesLoader(data.Dataset):
         self.img_size = img_size if isinstance(img_size, tuple) else (img_size, img_size)
         self.mean = np.array([0.0, 0.0, 0.0])
         self.files = {}
+        self.gt_idx = None
         
         if is_sequence:
             self.images_base = os.path.join(self.root, "leftImg8bit_sequence", self.split)
@@ -200,6 +201,8 @@ class cityscapesLoader(data.Dataset):
                 imgs[i], _ = self.transform(imgs[i], lbl)
                 imgs[i] = imgs[i].unsqueeze(0)
             _, lbl = self.transform(img, lbl)
+
+        print(torch.cat(imgs).shape)
 
 
         return torch.cat(imgs), (random_seq_idx, lbl)
@@ -320,6 +323,7 @@ class cityscapesLoader(data.Dataset):
         # Put all void classes to zero
         for _voidc in self.void_classes:
             mask[mask == _voidc] = self.ignore_index
+            
         for _validc in self.valid_classes:
             mask[mask == _validc] = self.class_map[_validc]
         return mask
