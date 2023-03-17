@@ -11,7 +11,7 @@ import utils
 class Trainer(nn.Module):
 
     def __init__(self,  model, optimizer, criterion, train_loader, 
-        valid_loader, epochs, scheduler=None, sequence=True, tboard_name=None, start_epoch=0, 
+        valid_loader, train_set, epochs, scheduler=None, sequence=True, tboard_name=None, start_epoch=0, 
         all_labels=None, print_intermediate_vals=False, model_name="") -> None:
         super().__init__()
         
@@ -24,6 +24,12 @@ class Trainer(nn.Module):
         self.train_loader = train_loader
         self.valid_loader = valid_loader
         self.sequence = sequence
+
+        if train_set == "coco":
+            self.train_fn = self.coco_train
+        elif train_set == "cityscapes":
+            self.train_fn = self.cityscapes_train
+
 
         if scheduler == None:
             self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, "min")
@@ -105,15 +111,10 @@ class Trainer(nn.Module):
             images = images.to(self.device)
             labels = labels.to(self.device).to(torch.long)
         
-            # sequence if necessary for single images
-            if self.sequence == True:
-                # Forward pass only to get logits/output
-                outputs = self.model(images)
-            else:
-                outputs = self.model(images.unsqueeze(1))
+
+            outputs, loss = self.train_fc(images, labels)
                     
             preds = torch.argmax(outputs, dim=1).to(torch.long)
-            loss = self.criterion(outputs.squeeze(), labels.squeeze())
             loss_list.append(loss.item())
 
             # mIoU
@@ -198,3 +199,30 @@ class Trainer(nn.Module):
         """ Counting the number of learnable parameters in a nn.Module """
         num_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
         return num_params
+
+    def coco_train(self, images, labels):
+        # sequence if necessary for single images
+        outputs = self.model(images.unsqueeze(1))
+
+        loss = self.criterion(outputs.squeeze(), labels.squeeze())
+
+        return outputs, loss
+
+    def cityscapes_train(self, images, labels):
+        # sequence if necessary for single images
+        if self.sequence == True:
+            # Forward pass only to get logits/output
+            outputs = self.model(images)
+        else:
+            outputs = self.model(images.unsqueeze(1))
+        
+        # dataset is given with 
+        gt_idx = labels[0]
+        assert gt_idx.size() == (1,), f"Expected to be the index of ground truth, got f{gt_idx} instead."
+        labels = labels[1]
+
+
+        loss = self.criterion(outputs.squeeze(), labels[gt_idx].squeeze())
+
+        return outputs, loss
+        

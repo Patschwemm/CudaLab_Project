@@ -177,7 +177,8 @@ class cityscapesLoader(data.Dataset):
 
         # Only works correctly for sequence lenghts less than the GT idx (19)
         # In this case, by default, it's 5
-        start_idx_sequence = 19 - np.random.randint(self.sequence_length)
+        random_seq_idx = torch.randint(low=0, high=self.sequence_length, size=(1,)).item()
+        start_idx_sequence = 19 - random_seq_idx
 
         imgs = []
         for img_path in img_paths[start_idx_sequence : start_idx_sequence + self.sequence_length]:
@@ -201,7 +202,7 @@ class cityscapesLoader(data.Dataset):
             _, lbl = self.transform(img, lbl)
 
 
-        return torch.cat(imgs), lbl
+        return torch.cat(imgs), (random_seq_idx, lbl)
 
     def transform(self, img, lbl):
         """transform

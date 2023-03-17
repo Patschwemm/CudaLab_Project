@@ -19,6 +19,7 @@ class RNN_UNetConfig:
     batch_norm: bool = False
 
 
+
 class RNN_UNetEncoder(nn.Module):
     """Encoder part of U-Net."""
 
@@ -77,6 +78,7 @@ class RNN_UNetDecoder(nn.Module):
         self.upsample_blocks = nn.ModuleList(
             [UpsampleBlock(channels, batch_norm, concat_hidden) for channels in blocks[1:]]
         )
+        
         self.out_block = nn.Conv2d(
             in_channels=blocks[-1][-1],
             out_channels=out_channels,
@@ -116,6 +118,10 @@ class RNN_UNet(nn.Module):
             config.use_pooling, 
             config.batch_norm
         )
+        print(config.out_channels,
+            config.decoder_blocks[0],
+            config.batch_norm,
+            config.concat_hidden,)
         self.decoder = RNN_UNetDecoder(
             config.out_channels,
             config.decoder_blocks[0],
@@ -125,6 +131,7 @@ class RNN_UNet(nn.Module):
 
         # self.encoder.apply(init_weights)
         # self.decoder.apply(init_weights)
+        self.out_block_in_channels = config.decoder_blocks[0][-1][-1]
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # loop over sequence
@@ -136,7 +143,17 @@ class RNN_UNet(nn.Module):
             outputs.append(out)
         
         outputs = torch.stack(outputs, dim=1)
-        return outputs[:, -1]
+        return outputs
 
     def save(self, path: str) -> None:
         torch.save(self.state_dict(), path)
+
+    def replace_outchannels(self,  out_channels):
+        
+        print(self.out_block_in_channels)
+        self.decoder.out_block = nn.Conv2d(
+            in_channels=self.out_block_in_channels,
+            out_channels=out_channels,
+            kernel_size=3,
+            padding=1,
+        )
