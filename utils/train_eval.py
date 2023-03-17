@@ -63,20 +63,14 @@ class Trainer(nn.Module):
         progress_bar = tqdm(enumerate(self.train_loader), total=len(self.train_loader))
         for i, (images, labels) in progress_bar:
             images = images.to(self.device)
-            labels = labels.to(self.device)
+            labels = labels.to(self.device).to(torch.long)
 
             # Clear gradients w.r.t. parameters
             self.optimizer.zero_grad()
             
-            # sequence if necessary for single images
-            if self.sequence == True:
-                # Forward pass only to get logits/output
-                outputs = self.model(images)
-            else:
-                outputs = self.model(images.unsqueeze(1))
+            preds, loss = self.train_fn(images, labels)
             
             # Calculate Loss: softmax --> cross entropy loss
-            loss = self.criterion(outputs, torch.tensor(labels, dtype=torch.long).squeeze())
             loss_list.append(loss.item())
             
             # Getting gradients w.r.t. parameters
@@ -111,15 +105,13 @@ class Trainer(nn.Module):
             images = images.to(self.device)
             labels = labels.to(self.device).to(torch.long)
         
-
-            outputs, loss = self.train_fc(images, labels)
+            preds, loss = self.train_fn(images, labels)
                     
-            preds = torch.argmax(outputs, dim=1).to(torch.long)
             loss_list.append(loss.item())
 
             # mIoU
-            preds = preds.squeeze().view(-1)
             labels = labels.squeeze().view(-1)
+            preds = preds.squeeze().view(-1)
 
             if self.all_labels!= None:
                 self.conf_mat += confusion_matrix(
@@ -203,9 +195,7 @@ class Trainer(nn.Module):
     def coco_train(self, images, labels):
         # sequence if necessary for single images
         outputs = self.model(images.unsqueeze(1))
-
         loss = self.criterion(outputs.squeeze(), labels.squeeze())
-
         return outputs, loss
 
     def cityscapes_train(self, images, labels):
@@ -225,4 +215,3 @@ class Trainer(nn.Module):
         loss = self.criterion(outputs.squeeze(), labels[gt_idx].squeeze())
 
         return outputs, loss
-        
