@@ -109,14 +109,14 @@ class Trainer(nn.Module):
         
         for images, labels in self.valid_loader:
             images = images.to(self.device)
-            labels = labels.to(self.device).to(torch.long)
+            labels = labels.to(self.device)
         
 
-            outputs, loss = self.train_fc(images, labels)
-                    
-            preds = torch.argmax(outputs, dim=1).to(torch.long)
+            outputs, loss = self.train_fn(images, labels)
+        
             loss_list.append(loss.item())
 
+            preds = torch.argmax(outputs, dim=2)
             # mIoU
             preds = preds.squeeze().view(-1)
             labels = labels.squeeze().view(-1)
@@ -204,7 +204,12 @@ class Trainer(nn.Module):
         # sequence if necessary for single images
         outputs = self.model(images.unsqueeze(1))
 
-        loss = self.criterion(outputs.squeeze(), labels.squeeze())
+        print(outputs.shape, labels.shape)
+        print(outputs.shape)
+        # preds = torch.argmax(outputs, dim=2)
+
+        print(outputs.squeeze().shape, labels.squeeze().shape)
+        loss = self.criterion(outputs.squeeze(), labels.squeeze().long())
 
         return outputs, loss
 
@@ -221,8 +226,7 @@ class Trainer(nn.Module):
         assert gt_idx.size() == (1,), f"Expected to be the index of ground truth, got f{gt_idx} instead."
         labels = labels[1]
 
-
-        loss = self.criterion(outputs.squeeze(), labels[gt_idx].squeeze())
+        loss = self.criterion(outputs[:, gt_idx].squeeze(), labels.squeeze())
 
         return outputs, loss
         
