@@ -24,18 +24,18 @@ def belongs_to_sequence(path):
 def recursive_glob(rootdir=".", suffix=""):
     key_func = lambda x: x[0:-22]
 
-
     seqences_dirs_list = []
     city_dirs = [x[0] for x in os.walk(rootdir)][1:]
-    
+    seq_len = 30
 
     for city_dir in city_dirs:
         paths = absoluteFilePaths(city_dir)
-        for key, group in itertools.groupby(paths, key_func):
-            seqences_dirs_list.append(list(group))
+        # for key, group in itertools.groupby(paths, key_func):
+        #     seqences_dirs_list.append(list(group))
+        for i in range(0, len(paths), seq_len):
+            seqences_dirs_list.append(paths[i : i + seq_len])
 
     return seqences_dirs_list
-
 
 class cityscapesLoader(data.Dataset):
     """cityscapesLoader
@@ -169,12 +169,11 @@ class cityscapesLoader(data.Dataset):
         :param index:
         """
         img_paths = self.files[self.split][index]
-
         lbl_path = os.path.join(
             self.annotations_base,
             img_paths[0].split(os.sep)[-2],
             
-            os.path.basename(img_paths[0])[:-22] + "000019_gtFine_labelIds.png",
+            os.path.basename(img_paths[19])[:-15] + "gtFine_labelIds.png",
         )
 
         # Only works correctly for sequence lenghts less than the GT idx (19)
@@ -328,6 +327,4 @@ class cityscapesLoader(data.Dataset):
 
         # set a new ignore idx to have no cross entropy error
         mask[mask == self.ignore_index] = len(self.class_map)
-        
-        
         return mask
