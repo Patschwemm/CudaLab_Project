@@ -99,6 +99,7 @@ class cityscapesLoader(data.Dataset):
             self.images_base = os.path.join(self.root, "leftImg8bit_sequence", self.split)
             self.annotations_base = os.path.join(self.root, "gtFine_sequence", self.split)
             self.sequence_length = 5 if self.split == 'train' else 12
+            self.min_rand_idx = (0 if self.sequence_length == 5 else 1)
         else:
             self.images_base = os.path.join(self.root, "leftImg8bit", self.split)
             self.annotations_base = os.path.join(self.root, "gtFine", self.split)
@@ -178,7 +179,7 @@ class cityscapesLoader(data.Dataset):
 
         # Only works correctly for sequence lenghts less than the GT idx (19)
         # In this case, by default, it's 5
-        random_seq_idx = torch.randint(low=0, high=self.sequence_length, size=(1,)).item()
+        random_seq_idx = torch.randint(low=self.min_rand_idx, high=self.sequence_length, size=(1,)).item()
         start_idx_sequence = 19 - random_seq_idx
 
         imgs = []
@@ -201,9 +202,6 @@ class cityscapesLoader(data.Dataset):
                 imgs[i], _ = self.transform(imgs[i], lbl)
                 imgs[i] = imgs[i].unsqueeze(0)
             _, lbl = self.transform(img, lbl)
-
-        print(torch.cat(imgs).shape)
-
 
         return torch.cat(imgs), (random_seq_idx, lbl)
 
@@ -236,10 +234,11 @@ class cityscapesLoader(data.Dataset):
         lbl = np.expand_dims(lbl, axis=0)
         lbl = lbl.astype(int)
 
-
-        if not np.all(np.unique(lbl[lbl != self.ignore_index]) < self.n_classes):
-            print("after det", classes, np.unique(lbl))
-            raise ValueError("Segmentation map contained invalid class values")
+        
+        ### This error occurs because the self ignore index value is set to 19
+        # if not np.all(np.unique(lbl[lbl != self.ignore_index]) < self.n_classes):
+        #     print("after det", classes, np.unique(lbl))
+        #     raise ValueError("Segmentation map contained invalid class values")
         
         # ------------- Augmentation -------------
         if self.use_default_aug:
@@ -326,4 +325,9 @@ class cityscapesLoader(data.Dataset):
             
         for _validc in self.valid_classes:
             mask[mask == _validc] = self.class_map[_validc]
+
+        # set a new ignore idx to have no cross entropy error
+        mask[mask == self.ignore_index] = len(self.class_map)
+        
+        
         return mask

@@ -119,10 +119,7 @@ class RNN_UNet(nn.Module):
             config.use_pooling, 
             config.batch_norm
         )
-        print(config.out_channels,
-            config.decoder_blocks[0],
-            config.batch_norm,
-            config.concat_hidden,)
+
         self.decoder = RNN_UNetDecoder(
             config.out_channels,
             config.decoder_blocks[0],
@@ -139,7 +136,6 @@ class RNN_UNet(nn.Module):
         outputs = []
         # x is Batch x Sequence x Channel x Height x Width
         for i in range(x.shape[1]):
-            print(x.shape)
             out, hidden_states, temporal_states = self.encoder(x[:, i])
             out = self.decoder(out, temporal_states)
             outputs.append(out)

@@ -56,6 +56,7 @@ class Trainer(nn.Module):
         self.val_loss =  []
         self.loss_iters = []
         self.valid_mIoU = []
+        self.valid_mAcc = []
         self.conf_mat = None
 
     def train_epoch(self, current_epoch):
@@ -96,6 +97,7 @@ class Trainer(nn.Module):
         correct = 0
         total = 0
         loss_list = []
+        Accs = []
         epsilon = 1e-6
 
         if self.all_labels != None:
@@ -104,18 +106,13 @@ class Trainer(nn.Module):
             self.conf_mat == None
         
         for images, labels in self.valid_loader:
-            images = images.to(self.device)
-            
-            if self.train_set == "cityscapes":
-                labels = (labels[0], labels[1].to(self.device))
-            else:
-                labels = labels.to(self.device)
 
-            outputs, loss = self.train_fn(images, labels)
+            outputs, loss, labels = self.train_fn(images, labels)
         
             loss_list.append(loss.item())
 
             preds = torch.argmax(outputs, dim=2)
+
             # mIoU
             labels = labels.squeeze().view(-1)
             preds = preds.squeeze().view(-1)
@@ -125,11 +122,18 @@ class Trainer(nn.Module):
                     y_true=labels.cpu().numpy(), y_pred=preds.cpu().numpy(), 
                     labels=np.arange(0, self.all_labels, 1)
                 )
+            
+            # compute mAcc
+            num_correct = torch.sum(preds == labels)
+            total_predictions = labels.shape[0]
+            Accs.append(num_correct/total_predictions)
 
         iou = self.conf_mat.diag() / (self.conf_mat.sum(axis=1) + self.conf_mat.sum(axis=0) - self.conf_mat.diag() + epsilon)
         mIoU = iou.mean()
+
+        mAcc = sum(Accs) / len(Accs)
         loss = np.mean(loss_list)
-        return mIoU, loss
+        return mIoU, mAcc, loss
 
 
     def train_model(self):
@@ -142,13 +146,15 @@ class Trainer(nn.Module):
             
             # validation epoch
             self.model.eval()  # important for dropout and batch norms
-            mIoU, loss = self.eval_model()
+            mIoU, mAcc, loss = self.eval_model()
             self.valid_mIoU.append(mIoU)
+            self.valid_mAcc.append(mAcc)
             self.val_loss.append(loss)
 
             # if we want to use tensorboard
             if self.tboard !=None:
                 self.tboard.add_scalar(f'mIoU/Valid', mIoU, global_step=epoch+self.start_epoch)
+                self.tboard.add_scalar(f'mAcc/Valid', mAcc, global_step=epoch+self.start_epoch)
                 self.tboard.add_scalar(f'Loss/Valid', loss, global_step=epoch+self.start_epoch)
             
             # training epoch
@@ -168,6 +174,7 @@ class Trainer(nn.Module):
                 print(f"    Train loss: {round(mean_loss, 5)}")
                 print(f"    Valid loss: {round(loss, 5)}")
                 print(f"    mIoU: {mIoU}%")
+                print(f"    mAcc: {mAcc}%")
                 print("\n")
 
             self.save_model(self.start_epoch + epoch)
@@ -180,7 +187,7 @@ class Trainer(nn.Module):
             self.model, 
             self.optimizer, 
             current_epoch,
-            [self.train_loss, self.val_loss, self.loss_iters, self.valid_mIoU, self.conf_mat],
+            [self.train_loss, self.val_loss, self.loss_iters, self.valid_mIoU, self.valid_mAcc, self.conf_mat],
             self.model_name
             )
             
@@ -192,7 +199,7 @@ class Trainer(nn.Module):
             f"models/checkpoint_{self.model.__class__.__name__}{self.model_name}_epoch_{self.start_epoch - 1}.pth",
             self.device
         )
-        self.train_loss, self.val_loss, self.loss_iters, self.valid_mIoU, self.conf_mat = self.stats
+        self.train_loss, self.val_loss, self.loss_iters, self.valid_mIoU, self.valid_mAcc, self.conf_mat = self.stats
 
     def count_model_params(self):
         """ Counting the number of learnable parameters in a nn.Module """
@@ -200,14 +207,22 @@ class Trainer(nn.Module):
         return num_params
 
     def coco_train(self, images, labels):
+
+        images = images.to(self.device)
+        labels = labels.to(self.device)
+
         # sequence if necessary for single images
         outputs = self.model(images.unsqueeze(1))
 
         loss = self.criterion(outputs.squeeze(), labels.squeeze().long())
 
-        return outputs, loss
+        # no change to labels but return it since cityscapes has a change to labels
+        return outputs, loss, labels
 
     def cityscapes_train(self, images, labels):
+
+        # label always to device
+        labels = (labels[0], labels[1].to(self.device))
 
         # extract label tuple
         gt_idx = labels[0]
@@ -216,14 +231,20 @@ class Trainer(nn.Module):
 
         # sequence if necessary for single images
         if self.sequence == True:
+            images = images.to(self.device)
             # Forward pass only to get logits/output
             outputs = self.model(images)
             loss = self.criterion(outputs[:, gt_idx].squeeze(), seg_mask.squeeze())
-
         else:
-            print("normal shape: ", images.shape)
-            print("image with gt idx ", images[gt_idx])
-            outputs = self.model(images[:, gt_idx, :, :, :])
+            gt_train_data = []
+            # get the right idx in a randomized sequence for each batch
+            for i in range(len(gt_idx)):
+                # get index for ith batch and append that gt_train tensor
+                gt_train_data.append(images[i, gt_idx[i]])
+
+            gt_train_data = torch.stack(gt_train_data).unsqueeze(1)
+            gt_train_data = gt_train_data.to(self.device)
+            outputs = self.model(gt_train_data)
             loss = self.criterion(outputs.squeeze(), seg_mask.squeeze())
 
-        return outputs, loss
+        return outputs, loss, seg_mask
