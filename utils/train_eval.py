@@ -65,13 +65,10 @@ class Trainer(nn.Module):
         loss_list = []
         progress_bar = tqdm(enumerate(self.train_loader), total=len(self.train_loader))
         for i, (images, labels) in progress_bar:
-            images = images.to(self.device)
-            labels = labels.to(self.device).to(torch.long)
-
             # Clear gradients w.r.t. parameters
             self.optimizer.zero_grad()
             
-            preds, loss = self.train_fn(images, labels)
+            preds, loss, seg_mask = self.train_fn(images, labels)
             
             # Calculate Loss: softmax --> cross entropy loss
             loss_list.append(loss.item())
@@ -107,25 +104,25 @@ class Trainer(nn.Module):
         
         for images, labels in self.valid_loader:
 
-            outputs, loss, labels = self.train_fn(images, labels)
+            outputs, loss, seg_mask = self.train_fn(images, labels)
         
             loss_list.append(loss.item())
 
             preds = torch.argmax(outputs, dim=2)
 
             # mIoU
-            labels = labels.squeeze().view(-1)
+            seg_mask = seg_mask.squeeze().view(-1)
             preds = preds.squeeze().view(-1)
 
             if self.all_labels!= None:
                 self.conf_mat += confusion_matrix(
-                    y_true=labels.cpu().numpy(), y_pred=preds.cpu().numpy(), 
+                    y_true=seg_mask.cpu().numpy(), y_pred=preds.cpu().numpy(), 
                     labels=np.arange(0, self.all_labels, 1)
                 )
             
             # compute mAcc
-            num_correct = torch.sum(preds == labels)
-            total_predictions = labels.shape[0]
+            num_correct = torch.sum(preds == seg_mask)
+            total_predictions = seg_mask.shape[0]
             Accs.append(num_correct/total_predictions)
 
         iou = self.conf_mat.diag() / (self.conf_mat.sum(axis=1) + self.conf_mat.sum(axis=0) - self.conf_mat.diag() + epsilon)
@@ -209,7 +206,7 @@ class Trainer(nn.Module):
     def coco_train(self, images, labels):
 
         images = images.to(self.device)
-        labels = labels.to(self.device)
+        labels = labels.to(self.device).to(torch.long)
 
         # sequence if necessary for single images
         outputs = self.model(images.unsqueeze(1))
@@ -222,7 +219,8 @@ class Trainer(nn.Module):
     def cityscapes_train(self, images, labels):
 
         # label always to device
-        labels = (labels[0], labels[1].to(self.device))
+        images = images.to(self.device)
+        labels = (labels[0], labels[1].to(self.device).to(torch.long))
 
         # extract label tuple
         gt_idx = labels[0]
