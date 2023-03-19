@@ -73,6 +73,6 @@ class Conv2dGRUCell(nn.Module):
         combined_cand = self.conv_candidates(combined)
         cnm = nn.Tanh(combined_cand)
 
-        self.h = (1 - update_gate) * self.h + update_gate * cnm
+        h_new = (1 - update_gate) * self.h + update_gate * cnm
 
-        return self.h
+        return h_new
