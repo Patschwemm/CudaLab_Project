@@ -49,19 +49,19 @@ class RNN_UNetEncoder(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.in_block(x)
 
-        hidden_states = []
+        skip_connect = []
         temporal_states = []
-        for block, c_rnn in zip(self.downsample_blocks, self.temporal_conv[:-1]):
-            # hidden_states.append(x)
+        for block, conv_temp_cell in zip(self.downsample_blocks, self.temporal_conv[:-1]):
+            # skip_connect.append(x)
             # pass through RNN 
-            temporal_states.append(c_rnn(x))
+            temporal_states.append(conv_temp_cell(x))
             x = block(x)
             # append rnn states for concatenation
         
         # pass through the last conv rnn state
         x = self.temporal_conv[-1](x)
 
-        return x, hidden_states, temporal_states
+        return x, skip_connect, temporal_states
 
 
 class RNN_UNetDecoder(nn.Module):
@@ -134,9 +134,14 @@ class RNN_UNet(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # loop over sequence
         outputs = []
+        # reset hidden state for a new sequence
+        
+        for i, temp_conv_cell in enumerate(self.encoder.temporal_conv):
+            
+            temp_conv_cell.reset_h(x[:, 0], i)
         # x is Batch x Sequence x Channel x Height x Width
         for i in range(x.shape[1]):
-            out, hidden_states, temporal_states = self.encoder(x[:, i])
+            out, skip_connect, temporal_states = self.encoder(x[:, i])
             out = self.decoder(out, temporal_states)
             outputs.append(out)
         

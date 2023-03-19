@@ -16,18 +16,13 @@ class Conv2dRNNCell(nn.Module):
         self.act_fn = act_fn
 
         # Initialize the hidden state parameter
-        self.h_init = False
         self.h = None
 
     def forward(self, x):
         # x: input sequence, shape (batch_size, input_size, sequence_length)
-        # h: hidden state, shape (batch_size, hidden_size, sequence_length)
-
-        if self.h_init == False:
-            self.h = torch.randn(x.shape[0], self.conv_hh.out_channels, x.shape[2], x.shape[3])
-            self.h = self.h.to(x.device)
 
         # Compute the convolutional output
+        print(x.shape, self.h.shape)
         c = self.conv_xh(x) + self.conv_hh(self.h)
         
         # Apply the non-linear activation function
@@ -37,6 +32,14 @@ class Conv2dRNNCell(nn.Module):
         h_new = c
         
         return h_new
+
+    def reset_h(self, x_i, i):
+        # h: hidden state, shape (batch_size, hidden_size, sequence_length)
+        x_shape = x_i.shape
+        x_shape = [x_shape[0], x_shape[1], x_shape[2]// (2**i), x_shape[3]// (2**i)]
+        print(x_shape)
+        self.h = torch.randn(x_shape[0], self.conv_hh.out_channels, x_shape[2], x_shape[3])
+        self.h = self.h.to(x_i.device)
 
 # Taken from: https://github.com/happyjin/ConvGRU-pytorch/blob/master/convGRU.py
 class Conv2dGRUCell(nn.Module):

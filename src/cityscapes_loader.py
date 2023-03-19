@@ -94,15 +94,13 @@ class cityscapesLoader(data.Dataset):
         self.mean = np.array([0.0, 0.0, 0.0])
         self.files = {}
         self.gt_idx = None
+        self.is_sequence = is_sequence
         
-        if is_sequence:
-            self.images_base = os.path.join(self.root, "leftImg8bit_sequence", self.split)
-            self.annotations_base = os.path.join(self.root, "gtFine_sequence", self.split)
-            self.sequence_length = 5 if self.split == 'train' else 12
-            self.min_rand_idx = (0 if self.sequence_length == 5 else 1)
-        else:
-            self.images_base = os.path.join(self.root, "leftImg8bit", self.split)
-            self.annotations_base = os.path.join(self.root, "gtFine", self.split)
+        self.images_base = os.path.join(self.root, "leftImg8bit_sequence", self.split)
+        self.annotations_base = os.path.join(self.root, "gtFine_sequence", self.split)
+
+        self.sequence_length = 5 if self.split == 'train' else 12
+        self.min_rand_idx = (0 if self.sequence_length == 5 else 1)
 
         self.files[split] = recursive_glob(rootdir=self.images_base, suffix=".png")
 
@@ -172,7 +170,6 @@ class cityscapesLoader(data.Dataset):
         lbl_path = os.path.join(
             self.annotations_base,
             img_paths[0].split(os.sep)[-2],
-            
             os.path.basename(img_paths[19])[:-15] + "gtFine_labelIds.png",
         )
 
@@ -182,8 +179,13 @@ class cityscapesLoader(data.Dataset):
         start_idx_sequence = 19 - random_seq_idx
 
         imgs = []
-        for img_path in img_paths[start_idx_sequence : start_idx_sequence + self.sequence_length]:
-            img = Image.open(img_path)
+        if self.is_sequence:
+            for img_path in img_paths[start_idx_sequence : start_idx_sequence + self.sequence_length]:
+                img = Image.open(img_path)
+                img = np.array(img, dtype=np.uint8)
+                imgs.append(img)
+        else:
+            img = Image.open(img_paths[19])
             img = np.array(img, dtype=np.uint8)
             imgs.append(img)
 

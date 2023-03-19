@@ -109,10 +109,12 @@ class Trainer(nn.Module):
             loss_list.append(loss.item())
 
             preds = torch.argmax(outputs, dim=2)
+            print(preds.shape)
 
             # mIoU
             seg_mask = seg_mask.squeeze().view(-1)
             preds = preds.squeeze().view(-1)
+            print(preds.shape, seg_mask.shape)
 
             if self.all_labels!= None:
                 self.conf_mat += confusion_matrix(
@@ -229,20 +231,23 @@ class Trainer(nn.Module):
 
         # sequence if necessary for single images
         if self.sequence == True:
-            images = images.to(self.device)
             # Forward pass only to get logits/output
             outputs = self.model(images)
-            loss = self.criterion(outputs[:, gt_idx].squeeze(), seg_mask.squeeze())
-        else:
+            print("outputs shape", outputs.shape )
+
             gt_train_data = []
-            # get the right idx in a randomized sequence for each batch
             for i in range(len(gt_idx)):
                 # get index for ith batch and append that gt_train tensor
-                gt_train_data.append(images[i, gt_idx[i]])
+                gt_train_data.append(outputs[i, gt_idx[i]])
 
             gt_train_data = torch.stack(gt_train_data).unsqueeze(1)
-            gt_train_data = gt_train_data.to(self.device)
-            outputs = self.model(gt_train_data)
+            print("gt_train_data shape:", gt_train_data.shape)
+            loss = self.criterion(gt_train_data.squeeze(), seg_mask.squeeze())
+            print(loss)
+            outputs = gt_train_data
+        else:
+
+            outputs = self.model(images)
             loss = self.criterion(outputs.squeeze(), seg_mask.squeeze())
 
         return outputs, loss, seg_mask
