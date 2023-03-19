@@ -37,7 +37,6 @@ class Conv2dRNNCell(nn.Module):
         # h: hidden state, shape (batch_size, hidden_size, sequence_length)
         x_shape = x_i.shape
         x_shape = [x_shape[0], x_shape[1], x_shape[2]// (2**i), x_shape[3]// (2**i)]
-        print(x_shape)
         self.h = torch.randn(x_shape[0], self.conv_hh.out_channels, x_shape[2], x_shape[3])
         self.h = self.h.to(x_i.device)
 

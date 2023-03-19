@@ -233,7 +233,6 @@ class Trainer(nn.Module):
         if self.sequence == True:
             # Forward pass only to get logits/output
             outputs = self.model(images)
-            print("outputs shape", outputs.shape )
 
             gt_train_data = []
             for i in range(len(gt_idx)):
@@ -241,9 +240,7 @@ class Trainer(nn.Module):
                 gt_train_data.append(outputs[i, gt_idx[i]])
 
             gt_train_data = torch.stack(gt_train_data).unsqueeze(1)
-            print("gt_train_data shape:", gt_train_data.shape)
             loss = self.criterion(gt_train_data.squeeze(), seg_mask.squeeze())
-            print(loss)
             outputs = gt_train_data
         else:
 
