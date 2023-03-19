@@ -8,8 +8,9 @@ from temporal_modules import *
 
 
 @dataclass
-class RNN_UNetConfig:
+class Temporal_UNetConfig:
     """Configuration for U-Net."""
+    temporal_cell: nn.Module = Conv2dGRUCell
     out_channels: int = 91
     encoder_blocks: list[list[int]] = [[3, 64, 64], [64, 128, 128], [128, 256, 256]],
     # these are the dimensions for concatenation, if summing is wanted, reduce the first dimension for each block
@@ -17,11 +18,10 @@ class RNN_UNetConfig:
     concat_hidden: bool = True
     use_pooling: bool = False
     batch_norm: bool = False
-    temporal_cell: Conv2dRNNCell
 
 
 
-class RNN_UNetEncoder(nn.Module):
+class Temporal_UNetEncoder(nn.Module):
     """Encoder part of U-Net."""
 
     def __init__(
@@ -29,9 +29,10 @@ class RNN_UNetEncoder(nn.Module):
         blocks: tuple[tuple[int, ...]],
         use_pooling: bool = False,
         batch_norm: bool = True,
+        temporal_cell = Conv2dGRUCell,
     ) -> None:
 
-        super(RNN_UNetEncoder, self).__init__()
+        super(Temporal_UNetEncoder, self).__init__()
         self.in_block = ConvBlock(blocks[0], batch_norm)
         self.downsample_blocks = nn.ModuleList(
             [DownsampleBlock(channels, use_pooling, batch_norm) for channels in blocks[1:]]
@@ -40,7 +41,7 @@ class RNN_UNetEncoder(nn.Module):
         temporal_conv = []
         for channels in blocks:
             in_size = channels[-1]
-            temporal_conv.append(Conv2dRNNCell(input_size=in_size, hidden_size=in_size, kernel_size=3))
+            temporal_conv.append(temporal_cell(input_size=in_size, hidden_size=in_size, kernel_size=3))
         
         self.temporal_conv = nn.ModuleList(temporal_conv)
 
@@ -65,7 +66,7 @@ class RNN_UNetEncoder(nn.Module):
         return x, skip_connect, temporal_states
 
 
-class RNN_UNetDecoder(nn.Module):
+class Temporal_UNetDecoder(nn.Module):
     """Decoder part of U-Net."""
 
     def __init__(
@@ -75,7 +76,7 @@ class RNN_UNetDecoder(nn.Module):
         batch_norm: bool = True,
         concat_hidden: bool = True,
     ) -> None:
-        super(RNN_UNetDecoder, self).__init__()
+        super(Temporal_UNetDecoder, self).__init__()
         self.in_block = ConvBlock(blocks[0], batch_norm)
         self.upsample_blocks = nn.ModuleList(
             [UpsampleBlock(channels, batch_norm, concat_hidden) for channels in blocks[1:]]
@@ -96,7 +97,6 @@ class RNN_UNetDecoder(nn.Module):
             if self.concat_hidden:
                 x = block.upsample(x)
                 # temporal_conv = center_pad(temporal_conv, x.shape[2:])
-                
                 x = torch.cat([x, temporal_conv], dim=1)
                 x = block.conv_block(x)
             else:
@@ -108,20 +108,21 @@ class RNN_UNetDecoder(nn.Module):
         return self.out_block(x)
 
 
-class RNN_UNet(nn.Module):
+class Temporal_UNet(nn.Module):
     """U-Net segmentation model."""
 
-    def __init__(self, config: RNN_UNetConfig) -> None:
-        super(RNN_UNet, self).__init__()
+    def __init__(self, config: Temporal_UNetConfig) -> None:
+        super(Temporal_UNet, self).__init__()
         self.config = config
-
-        self.encoder = RNN_UNetEncoder(
+        print(config.temporal_cell)
+        self.encoder = Temporal_UNetEncoder(
             config.encoder_blocks[0], 
             config.use_pooling, 
-            config.batch_norm
+            config.batch_norm,
+            config.temporal_cell
         )
 
-        self.decoder = RNN_UNetDecoder(
+        self.decoder = Temporal_UNetDecoder(
             config.out_channels,
             config.decoder_blocks[0],
             config.batch_norm,
@@ -136,16 +137,13 @@ class RNN_UNet(nn.Module):
         # loop over sequence
         outputs = []
         # reset hidden state for a new sequence
-        
         for i, temp_conv_cell in enumerate(self.encoder.temporal_conv):
-            
             temp_conv_cell.reset_h(x[:, 0], i)
         # x is Batch x Sequence x Channel x Height x Width
         for i in range(x.shape[1]):
             out, skip_connect, temporal_states = self.encoder(x[:, i])
             out = self.decoder(out, temporal_states)
             outputs.append(out)
-        
         outputs = torch.stack(outputs, dim=1)
         return outputs
 

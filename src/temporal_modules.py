@@ -39,6 +39,7 @@ class Conv2dRNNCell(nn.Module):
         self.h = torch.randn(x_shape[0], self.conv_hh.out_channels, x_shape[2], x_shape[3])
         self.h = self.h.to(x_i.device)
 
+
 # Taken from: https://github.com/happyjin/ConvGRU-pytorch/blob/master/convGRU.py
 class Conv2dGRUCell(nn.Module):
     def __init__(self, input_size, hidden_size, kernel_size=3) -> None:
@@ -58,22 +59,25 @@ class Conv2dGRUCell(nn.Module):
     def forward(self, x):
 
         # x shape: (batch, h_dim, h, w)
-
-        if self.h_init == False:
-            self.h = torch.randn(x.shape[0], self.h_dim, x.shape[2], x.shape[3])
-            self.h = self.h.to(x.device)
         
         combined = torch.cat([x, self.h], dim=1)
         combined_conv = self.conv_gates(combined)
 
         gamma, beta = torch.split(combined_conv, self.h_dim, dim=1)
-        reset_gate = nn.Sigmoid(gamma)
-        update_gate = nn.Sigmoid(beta)
+        reset_gate = nn.Sigmoid()(gamma)
+        update_gate = nn.Sigmoid()(beta)
 
         combined = torch.cat([x, reset_gate * self.h], dim=1)
         combined_cand = self.conv_candidates(combined)
-        cnm = nn.Tanh(combined_cand)
+        cnm = nn.Tanh()(combined_cand)
 
         h_new = (1 - update_gate) * self.h + update_gate * cnm
 
         return h_new
+    
+    def reset_h(self, x_i, i):
+        # h: hidden state, shape (batch_size, hidden_size, sequence_length)
+        x_shape = x_i.shape
+        x_shape = [x_shape[0], x_shape[1], x_shape[2]// (2**i), x_shape[3]// (2**i)]
+        self.h = torch.randn(x_shape[0], self.h_dim, x_shape[2], x_shape[3])
+        self.h = self.h.to(x_i.device)
