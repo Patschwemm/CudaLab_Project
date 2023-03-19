@@ -109,12 +109,10 @@ class Trainer(nn.Module):
             loss_list.append(loss.item())
 
             preds = torch.argmax(outputs, dim=2)
-            print(preds.shape)
 
             # mIoU
             seg_mask = seg_mask.squeeze().view(-1)
             preds = preds.squeeze().view(-1)
-            print(preds.shape, seg_mask.shape)
 
             if self.all_labels!= None:
                 self.conf_mat += confusion_matrix(

@@ -22,7 +22,6 @@ class Conv2dRNNCell(nn.Module):
         # x: input sequence, shape (batch_size, input_size, sequence_length)
 
         # Compute the convolutional output
-        print(x.shape, self.h.shape)
         c = self.conv_xh(x) + self.conv_hh(self.h)
         
         # Apply the non-linear activation function
