@@ -38,3 +38,41 @@ class Conv2dRNNCell(nn.Module):
         
         return h_new
 
+# Taken from: https://github.com/happyjin/ConvGRU-pytorch/blob/master/convGRU.py
+class Conv2dGRUCell(nn.Module):
+    def __init__(self, input_size, hidden_size, kernel_size=3) -> None:
+        super(Conv2dGRUCell, self).__init__()
+
+        self.h_init = False
+        self.h_dim = hidden_size
+        self.h = None
+
+        padding = kernel_size // 2
+
+        self.conv_gates = nn.Conv2d(in_channels=input_size + hidden_size, out_channels=2*hidden_size,
+                                     kernel_size=kernel_size, padding=padding)
+        self.conv_candidates = nn.Conv2d(in_channels=input_size + hidden_size, out_channels=hidden_size,
+                                          kernel_size=kernel_size, padding=padding)
+
+    def forward(self, x):
+
+        # x shape: (batch, h_dim, h, w)
+
+        if self.h_init == False:
+            self.h = torch.randn(x.shape[0], self.h_dim, x.shape[2], x.shape[3])
+            self.h = self.h.to(x.device)
+        
+        combined = torch.cat([x, self.h], dim=1)
+        combined_conv = self.conv_gates(combined)
+
+        gamma, beta = torch.split(combined_conv, self.h_dim, dim=1)
+        reset_gate = nn.Sigmoid(gamma)
+        update_gate = nn.Sigmoid(beta)
+
+        combined = torch.cat([x, reset_gate * self.h], dim=1)
+        combined_cand = self.conv_candidates(combined)
+        cnm = nn.Tanh(combined_cand)
+
+        self.h = (1 - update_gate) * self.h + update_gate * cnm
+
+        return self.h
