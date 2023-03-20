@@ -28,9 +28,9 @@ class Conv2dRNNCell(nn.Module):
         c = self.act_fn(c)
         
         # Update the hidden state
-        h_new = c
+        self.h = c
         
-        return h_new
+        return c
 
     def reset_h(self, x_i, i):
         # h: hidden state, shape (batch_size, hidden_size, sequence_length)
@@ -71,9 +71,9 @@ class Conv2dGRUCell(nn.Module):
         combined_cand = self.conv_candidates(combined)
         cnm = nn.Tanh()(combined_cand)
 
-        h_new = (1 - update_gate) * self.h + update_gate * cnm
+        self.h = (1 - update_gate) * self.h + update_gate * cnm
 
-        return h_new
+        return self.h
     
     def reset_h(self, x_i, i):
         # h: hidden state, shape (batch_size, hidden_size, sequence_length)

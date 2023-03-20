@@ -76,7 +76,7 @@ class RNN_UNetDecoder(nn.Module):
         concat_hidden: bool = True,
     ) -> None:
         super(RNN_UNetDecoder, self).__init__()
-        self.in_block = ConvBlock(blocks[0], batch_norm)
+        
         self.upsample_blocks = nn.ModuleList(
             [UpsampleBlock(channels, batch_norm, concat_hidden) for channels in blocks[1:]]
         )
