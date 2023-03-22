@@ -31,14 +31,19 @@ if __name__ == "__main__":
     temp_unet = Temporal_UNET_Template.Temporal_UNet(config)
 
     temp_unet_optim = torch.optim.Adam(temp_unet.parameters(), lr=3e-4)
-
     criterion = nn.CrossEntropyLoss()
 
-    
-    epochs=10
+    load_trained_path = "./src/models/checkpoint_Temporal_UNet_epoch_19.pth"
+
+
+    epochs=90
     temp_unet_trainer = train_eval.Trainer(
-            temp_unet, temp_unet_optim, criterion, 
-            train_loader, valid_loader, "cityscapes", epochs, 
-            sequence=True, all_labels=20, start_epoch=0)
-    
+            temp_unet, temp_unet_optim, criterion,
+            train_loader, valid_loader, "cityscapes", epochs,
+            sequence=True, all_labels=20, start_epoch=20)
+
+    load_model = True
+    if load_model:
+        temp_unet_trainer.load_model()
+
     temp_unet_trainer.train_model()

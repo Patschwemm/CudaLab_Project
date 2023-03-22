@@ -1,4 +1,4 @@
-from tqdm import tqdm 
+from tqdm import tqdm
 import numpy as np
 import torch
 import torch.nn as nn
@@ -10,11 +10,11 @@ from . import utils
 
 class Trainer(nn.Module):
 
-    def __init__(self,  model, optimizer, criterion, train_loader, 
-        valid_loader, train_set, epochs, scheduler=None, sequence=True, tboard_name=None, start_epoch=0, 
+    def __init__(self,  model, optimizer, criterion, train_loader,
+        valid_loader, train_set, epochs, scheduler=None, sequence=True, tboard_name=None, start_epoch=0,
         all_labels=None, print_intermediate_vals=False, model_name="") -> None:
         super().__init__()
-        
+
         # needed for training
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model
@@ -61,24 +61,24 @@ class Trainer(nn.Module):
 
     def train_epoch(self, current_epoch):
         """ Training a model for one epoch """
-        
+
         loss_list = []
         progress_bar = tqdm(enumerate(self.train_loader), total=len(self.train_loader))
         for i, (images, labels) in progress_bar:
             # Clear gradients w.r.t. parameters
             self.optimizer.zero_grad()
-            
+
             preds, loss, seg_mask = self.train_fn(images, labels)
-            
+
             # Calculate Loss: softmax --> cross entropy loss
             loss_list.append(loss.item())
-            
+
             # Getting gradients w.r.t. parameters
             loss.backward()
-            
+
             # Updating parameters
             self.optimizer.step()
-            
+
             progress_bar.set_description(f"Epoch {current_epoch+1} Iter {i+1}: loss {loss.item():.5f}. ")
 
             if i == len(self.train_loader)-1:
@@ -101,11 +101,11 @@ class Trainer(nn.Module):
             self.conf_mat = torch.zeros(self.all_labels, self.all_labels)
         else:
             self.conf_mat == None
-        
+
         for images, labels in self.valid_loader:
 
             outputs, loss, seg_mask = self.train_fn(images, labels)
-        
+
             loss_list.append(loss.item())
 
             preds = torch.argmax(outputs, dim=2)
@@ -116,10 +116,10 @@ class Trainer(nn.Module):
 
             if self.all_labels!= None:
                 self.conf_mat += confusion_matrix(
-                    y_true=seg_mask.cpu().numpy(), y_pred=preds.cpu().numpy(), 
+                    y_true=seg_mask.cpu().numpy(), y_pred=preds.cpu().numpy(),
                     labels=np.arange(0, self.all_labels, 1)
                 )
-            
+
             # compute mAcc
             num_correct = torch.sum(preds == seg_mask)
             total_predictions = seg_mask.shape[0]
@@ -135,12 +135,12 @@ class Trainer(nn.Module):
 
     def train_model(self):
         """ Training a model for a given number of epochs"""
-        
+
         start = time.time()
         self.model = self.model.to(self.device)
-        
+
         for epoch in range(self.epochs):
-            
+
             # validation epoch
             self.model.eval()  # important for dropout and batch norms
             mIoU, mAcc, loss = self.eval_model()
@@ -153,7 +153,7 @@ class Trainer(nn.Module):
                 self.tboard.add_scalar(f'mIoU/Valid', mIoU, global_step=epoch+self.start_epoch)
                 self.tboard.add_scalar(f'mAcc/Valid', mAcc, global_step=epoch+self.start_epoch)
                 self.tboard.add_scalar(f'Loss/Valid', loss, global_step=epoch+self.start_epoch)
-            
+
             # training epoch
             self.model.train()  # important for dropout and batch norms
             mean_loss, cur_loss_iters = self.train_epoch(epoch)
@@ -165,7 +165,7 @@ class Trainer(nn.Module):
                 self.tboard.add_scalar(f'Loss/Train', mean_loss, global_step=epoch+self.start_epoch)
 
             self.loss_iters = self.loss_iters + cur_loss_iters
-            
+
             if self.print_intermediate_vals: # and epoch % 5 == 0 or epoch==self.epochs-1):
                 print(f"Epoch {epoch+1}/{self.epochs}")
                 print(f"    Train loss: {round(mean_loss, 5)}")
@@ -175,25 +175,25 @@ class Trainer(nn.Module):
                 print("\n")
 
             self.save_model(self.start_epoch + epoch)
-        
+
         end = time.time()
         print(f"Training completed after {(end-start)/60:.2f}min")
 
     def save_model(self, current_epoch):
         utils.save_model(
-            self.model, 
-            self.optimizer, 
+            self.model,
+            self.optimizer,
             current_epoch,
             [self.train_loss, self.val_loss, self.loss_iters, self.valid_mIoU, self.valid_mAcc, self.conf_mat],
             self.model_name
             )
-            
+
 
     def load_model(self):
         self.model, self.optimizer, self.start_epoch, self.stats = utils.load_model(
-            self.model, 
-            self.optimizer, 
-            f"models/checkpoint_{self.model.__class__.__name__}{self.model_name}_epoch_{self.start_epoch - 1}.pth",
+            self.model,
+            self.optimizer,
+            f"models/checkpoint_{self.model.__class__.__name__}{self.model_name}_epoch_{self.start_epoch}.pth",
             self.device
         )
         self.train_loss, self.val_loss, self.loss_iters, self.valid_mIoU, self.valid_mAcc, self.conf_mat = self.stats
