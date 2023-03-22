@@ -5,7 +5,7 @@ import torch.nn as nn
 import time
 from sklearn.metrics import confusion_matrix
 import torch.utils.tensorboard
-import utils
+from . import utils
 
 
 class Trainer(nn.Module):
@@ -238,7 +238,7 @@ class Trainer(nn.Module):
                 gt_train_data.append(outputs[i, gt_idx[i]])
 
             gt_train_data = torch.stack(gt_train_data).unsqueeze(1)
-            loss = self.criterion(gt_train_data.squeeze(), seg_mask.squeeze())
+            loss = self.criterion(gt_train_data.squeeze(1), seg_mask.squeeze(1))
             outputs = gt_train_data
         else:
 

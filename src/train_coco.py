@@ -1,4 +1,3 @@
-import sys
 import torch
 import torch.nn as nn
 import torchvision
@@ -7,13 +6,14 @@ import torchvision.transforms as T
 from pycocotools import mask as mask
 import numpy as np
 import matplotlib.pyplot as plt
-import utils
-import utils.train_eval
+# "PYThONPATH=. python .py" to import when running
+import utils.utils as utils
+import utils.train_eval as train_eval
 
 
-import coco_dataset
-import importlib
-import Temporal_UNET_Template
+import datasets.coco_dataset as coco_dataset
+import architectures.Temporal_UNET_Template as Temporal_UNET_Template
+import architectures.architecture_configs as architecture_configs
 
 if __name__ == "__main__":
     utils.set_random_seed()
@@ -33,11 +33,11 @@ if __name__ == "__main__":
     train_set = coco_dataset.Coco_Dataset(train_data_dir, train_ann_file, mode="segmentation")
     val_set = coco_dataset.Coco_Dataset(val_data_dir, val_ann_file, mode="segmentation")
 
-    batch_size = 16
+    batch_size = 8
     train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True)
     valid_loader = torch.utils.data.DataLoader(val_set, batch_size=batch_size, shuffle=False)
 
-    config = Temporal_UNET_Template.Temporal_UNetConfig()
+    config = architecture_configs.Temporal_ResNetUNetConfig()
 
     temp_unet = Temporal_UNET_Template.Temporal_UNet(config)
 
@@ -47,7 +47,7 @@ if __name__ == "__main__":
 
     
     epochs=20
-    temp_unet_trainer = utils.train_eval.Trainer(
-        temp_unet, temp_unet_optim, criterion, train_loader, valid_loader, "coco", epochs, sequence=False, all_labels=91, start_epoch=10)
+    temp_unet_trainer = train_eval.Trainer(
+        temp_unet, temp_unet_optim, criterion, train_loader, valid_loader, "coco", epochs, sequence=False, all_labels=91, start_epoch=0)
     
     temp_unet_trainer.train_model()

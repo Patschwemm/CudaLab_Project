@@ -6,3 +6,4 @@ videos/
 imgs/
 cocoapi/
 src/.ipynb_checkpoints/
+__init__.py
