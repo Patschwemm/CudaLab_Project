@@ -111,8 +111,8 @@ class Trainer():
             preds = torch.argmax(outputs, dim=2)
 
             # mIoU
-            seg_mask = seg_mask.squeeze().view(-1)
-            preds = preds.squeeze().view(-1)
+            seg_mask = seg_mask.squeeze(1).view(-1)
+            preds = preds.squeeze(1).view(-1)
 
             if self.all_labels!= None:
                 self.conf_mat += confusion_matrix(

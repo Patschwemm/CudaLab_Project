@@ -36,6 +36,21 @@ class Temporal_VanillaUNetConfig:
     batch_norm: bool = False
 
 @dataclass 
+class Temporal_GRU_UNetConfig:
+
+    initblock: nn.Module = vanilla_modules.ConvBlock
+    downsampleblock: nn.Module = vanilla_modules.DownsampleBlock
+    upsampleblock: nn.Module = vanilla_modules.UpsampleBlock
+    temporal_cell: nn.Module = Conv2dGRUCell
+    out_channels: int = 20
+    encoder_blocks: list[list[int]] = [[3, 64, 64], [64, 128, 128], [128, 256, 256]],
+    # these are the dimensions for concatenation, if summing is wanted, reduce the first dimension for each block
+    decoder_blocks: list[list[int]] = [[512, 256, 256], [256, 128, 128], [128, 64, 64]],
+    concat_hidden: bool = True
+    use_pooling: bool = False
+    batch_norm: bool = True
+
+@dataclass 
 class Temporal_ResUNetConfig:
 
     initblock: nn.Module = resnet_modules.ResNet18Initblock
