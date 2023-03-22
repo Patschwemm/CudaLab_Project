@@ -27,21 +27,28 @@ if __name__ == "__main__":
     train_loader = torch.utils.data.DataLoader(train_ds, batch_size=1, shuffle=True, drop_last=False)
     valid_loader = torch.utils.data.DataLoader(val_ds, batch_size=1, shuffle=False, drop_last=False)
 
-    config = Temporal_VanillaUNetConfig(out_channels=train_ds.n_classes+1)
+    encoder_blocks = SmallShallow_NetworkSize.encoder_blocks
+    decoder_blocks = SmallShallow_NetworkSize.decoder_blocks
+
+    config = Temporal_VanillaUNet(encoder_blocks, decoder_blocks)
 
     temp_unet = Temporal_UNET_Template.Temporal_UNet(config)
 
     temp_unet_optim = torch.optim.Adam(temp_unet.parameters(), lr=3e-4)
     criterion = nn.CrossEntropyLoss()
 
+
     epochs=50
     temp_unet_trainer = utils.train_eval.Trainer(
             temp_unet, temp_unet_optim, criterion,
             train_loader, valid_loader, "cityscapes", epochs,
-            sequence=True, all_labels=20, start_epoch=19)
+            sequence=True, all_labels=20, start_epoch=0)
 
-    load_model = True
-    if load_model:
-        temp_unet_trainer.load_model()
+    # temp_unet_trainer.save_model(0)
 
-    # temp_unet_trainer.train_model()
+    # load_model = True
+    # if load_model:
+    #     temp_unet_trainer.load_model("cityscapes")
+
+
+    temp_unet_trainer.train_model()

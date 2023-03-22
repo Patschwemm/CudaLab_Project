@@ -7,3 +7,5 @@ imgs/
 cocoapi/
 src/.ipynb_checkpoints/
 __init__.py
+tboard_logs/
+models/

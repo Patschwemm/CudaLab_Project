@@ -112,12 +112,13 @@ def get_loader(dataset, dataset_name, train_transform=T.ToTensor(), test_transfo
 
     return train_loader, test_loader, num_labels
 
-def save_model(model, optimizer, epoch, stats, model_name=""):
+def save_model(model, optimizer, epoch, stats, savepath=None):
     """ Saving model checkpoint """
 
     if(not os.path.exists("models")):
         os.makedirs("models")
-    savepath = f"models/checkpoint_{model.__class__.__name__}{model_name}_epoch_{epoch}.pth"
+    if savepath == None:
+        savepath = f"models/checkpoint_{model.__class__.__name__}_epoch_{epoch}.pth"
 
     torch.save({
         'epoch': epoch,
