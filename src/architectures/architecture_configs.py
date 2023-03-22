@@ -45,7 +45,7 @@ class Temporal_TemplateUNetConfig(Config):
     batch_norm: bool = True
 
 @dataclass 
-class Temporal_VanillaUNet(Temporal_TemplateUNetConfig):
+class Temporal_VanillaUNetConfig(Temporal_TemplateUNetConfig):
     initblock: nn.Module = vanilla_modules.ConvBlock
     downsampleblock: nn.Module = vanilla_modules.DownsampleBlock
     upsampleblock: nn.Module = vanilla_modules.UpsampleBlock
