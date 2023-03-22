@@ -8,7 +8,7 @@ import torch.utils.tensorboard
 from . import utils
 
 
-class Trainer(nn.Module):
+class Trainer():
 
     def __init__(self,  model, optimizer, criterion, train_loader,
         valid_loader, train_set, epochs, scheduler=None, sequence=True, tboard_name=None, start_epoch=0,

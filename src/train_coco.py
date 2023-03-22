@@ -7,8 +7,8 @@ from pycocotools import mask as mask
 import numpy as np
 import matplotlib.pyplot as plt
 # "PYThONPATH=. python .py" to import when running
-import utils.utils as utils
-import utils.train_eval as train_eval
+import utils.utils 
+import utils.train_eval
 
 
 import datasets.coco_dataset as coco_dataset
@@ -16,7 +16,7 @@ import architectures.Temporal_UNET_Template as Temporal_UNET_Template
 import architectures.architecture_configs as architecture_configs
 
 if __name__ == "__main__":
-    utils.set_random_seed()
+    utils.utils.set_random_seed()
 
     
     # path to MS COCO dataset
@@ -47,7 +47,7 @@ if __name__ == "__main__":
 
     
     epochs=20
-    temp_unet_trainer = train_eval.Trainer(
+    temp_unet_trainer = utils.train_eval.Trainer(
         temp_unet, temp_unet_optim, criterion, train_loader, valid_loader, "coco", epochs, sequence=False, all_labels=91, start_epoch=0)
     
     temp_unet_trainer.train_model()
