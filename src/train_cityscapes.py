@@ -12,7 +12,7 @@ import utils.train_eval
 
 import datasets.cityscapes_loader as cityscapes_loader
 import architectures.Temporal_UNET_Template as Temporal_UNET_Template
-import architectures.architecture_configs as architecture_configs
+from architectures.architecture_configs import Temporal_GRU_UNetConfig
 
 if __name__ == "__main__":
     utils.utils.set_random_seed()
@@ -24,10 +24,10 @@ if __name__ == "__main__":
     train_ds = cityscapes_loader.cityscapesLoader(root=dataset_root_dir, split='train', img_size=(512, 1024), is_transform=True, is_sequence=is_sequence)
     val_ds = cityscapes_loader.cityscapesLoader(root=dataset_root_dir, split='val', img_size=(512, 1024), is_transform=True, is_sequence=is_sequence)
 
-    train_loader = torch.utils.data.DataLoader(train_ds, batch_size=1, shuffle=True, drop_last=True)
-    valid_loader = torch.utils.data.DataLoader(val_ds, batch_size=1, shuffle=False, drop_last=True)
+    train_loader = torch.utils.data.DataLoader(train_ds, batch_size=1, shuffle=True, drop_last=False)
+    valid_loader = torch.utils.data.DataLoader(val_ds, batch_size=1, shuffle=False, drop_last=False)
 
-    config = architecture_configs.Temporal_ResUNetConfig()
+    config = Temporal_GRU_UNetConfig()
 
     temp_unet = Temporal_UNET_Template.Temporal_UNet(config)
 
@@ -35,8 +35,7 @@ if __name__ == "__main__":
 
     criterion = nn.CrossEntropyLoss()
 
-    
-    epochs=10
+    epochs=30
     temp_unet_trainer = utils.train_eval.Trainer(
             temp_unet, temp_unet_optim, criterion, 
             train_loader, valid_loader, "cityscapes", epochs, 
