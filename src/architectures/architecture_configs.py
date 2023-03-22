@@ -36,7 +36,7 @@ class Temporal_VanillaUNetConfig:
     batch_norm: bool = False
 
 @dataclass 
-class Temporal_ResNetUNetConfig:
+class Temporal_ResUNetConfig:
 
     initblock: nn.Module = resnet_modules.ResNet18Initblock
     downsampleblock: nn.Module = resnet_modules.Resnet18Downblock

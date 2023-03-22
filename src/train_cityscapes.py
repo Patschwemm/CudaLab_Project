@@ -7,15 +7,16 @@ from pycocotools import mask as mask
 import numpy as np
 import matplotlib.pyplot as plt
 # "PYThONPATH=. python .py" to import when running
-import utils.utils as utils
-import utils.train_eval as train_eval
-
+import utils.utils 
+import utils.train_eval
 
 import datasets.cityscapes_loader as cityscapes_loader
 import architectures.Temporal_UNET_Template as Temporal_UNET_Template
 import architectures.architecture_configs as architecture_configs
 
 if __name__ == "__main__":
+    utils.utils.set_random_seed()
+
     is_sequence = True
 
     dataset_root_dir = "/home/nfs/inf6/data/datasets/cityscapes/"
@@ -26,7 +27,7 @@ if __name__ == "__main__":
     train_loader = torch.utils.data.DataLoader(train_ds, batch_size=1, shuffle=True, drop_last=True)
     valid_loader = torch.utils.data.DataLoader(val_ds, batch_size=1, shuffle=False, drop_last=True)
 
-    config = architecture_configs.Temporal_ResNetUNetConfig()
+    config = architecture_configs.Temporal_ResUNetConfig()
 
     temp_unet = Temporal_UNET_Template.Temporal_UNet(config)
 
@@ -36,7 +37,7 @@ if __name__ == "__main__":
 
     
     epochs=10
-    temp_unet_trainer = train_eval.Trainer(
+    temp_unet_trainer = utils.train_eval.Trainer(
             temp_unet, temp_unet_optim, criterion, 
             train_loader, valid_loader, "cityscapes", epochs, 
             sequence=True, all_labels=20, start_epoch=0)
