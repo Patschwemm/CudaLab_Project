@@ -12,7 +12,7 @@ import utils.train_eval
 
 import datasets.cityscapes_loader as cityscapes_loader
 import architectures.Temporal_UNET_Template as Temporal_UNET_Template
-from architectures.architecture_configs import Temporal_GRU_UNetConfig
+from architectures.architecture_configs import *
 
 if __name__ == "__main__":
     utils.utils.set_random_seed()
@@ -27,15 +27,12 @@ if __name__ == "__main__":
     train_loader = torch.utils.data.DataLoader(train_ds, batch_size=1, shuffle=True, drop_last=False)
     valid_loader = torch.utils.data.DataLoader(val_ds, batch_size=1, shuffle=False, drop_last=False)
 
-    config = Temporal_GRU_UNetConfig()
+    config = Temporal_VanillaUNetConfig(out_channels=train_ds.n_classes+1)
 
     temp_unet = Temporal_UNET_Template.Temporal_UNet(config)
 
     temp_unet_optim = torch.optim.Adam(temp_unet.parameters(), lr=3e-4)
     criterion = nn.CrossEntropyLoss()
-
-    load_trained_path = "./src/models/checkpoint_Temporal_UNet_epoch_19.pth"
-
 
     epochs=50
     temp_unet_trainer = utils.train_eval.Trainer(
@@ -43,8 +40,8 @@ if __name__ == "__main__":
             train_loader, valid_loader, "cityscapes", epochs,
             sequence=True, all_labels=20, start_epoch=19)
 
-    load_model = False
+    load_model = True
     if load_model:
         temp_unet_trainer.load_model()
 
-    temp_unet_trainer.train_model()
+    # temp_unet_trainer.train_model()

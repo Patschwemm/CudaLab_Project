@@ -198,8 +198,13 @@ class Trainer():
         )
         self.train_loss, self.val_loss, self.loss_iters, self.valid_mIoU, self.valid_mAcc, self.conf_mat = self.stats
 
-    def load_model_params(self):
-        pass
+    def load_model_by_params(self):
+        utils.load_model_by_params(
+            self.model,
+            self.optimizer,
+            f"src/models/checkpoint_{self.model.__class__.__name__}{self.model_name}_epoch_{self.start_epoch}.pth",
+            self.device
+        )
 
     def count_model_params(self):
         """ Counting the number of learnable parameters in a nn.Module """
