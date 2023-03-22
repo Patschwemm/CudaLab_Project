@@ -7,7 +7,7 @@ from pycocotools import mask as mask
 import numpy as np
 import matplotlib.pyplot as plt
 # "PYThONPATH=. python .py" to import when running
-import utils.utils 
+import utils.utils
 import utils.train_eval
 
 
@@ -18,7 +18,7 @@ import architectures.architecture_configs as architecture_configs
 if __name__ == "__main__":
     utils.utils.set_random_seed()
 
-    
+
     # path to MS COCO dataset
     train_data_dir = '/home/nfs/inf6/data/datasets/coco/train2017'
     val_data_dir = '/home/nfs/inf6/data/datasets/coco/val2017'
@@ -45,9 +45,14 @@ if __name__ == "__main__":
 
     criterion = nn.CrossEntropyLoss()
 
-    
+
     epochs=20
     temp_unet_trainer = utils.train_eval.Trainer(
         temp_unet, temp_unet_optim, criterion, train_loader, valid_loader, "coco", epochs, sequence=False, all_labels=91, start_epoch=0)
-    
+
+    load_model = True
+    if load_model:
+        temp_unet_trainer.load_model()
+
+
     temp_unet_trainer.train_model()

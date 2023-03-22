@@ -41,7 +41,7 @@ if __name__ == "__main__":
     temp_unet_trainer = utils.train_eval.Trainer(
             temp_unet, temp_unet_optim, criterion,
             train_loader, valid_loader, "cityscapes", epochs,
-            sequence=True, all_labels=20, start_epoch=20)
+            sequence=True, all_labels=20, start_epoch=19)
 
     load_model = True
     if load_model:
