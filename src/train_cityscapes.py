@@ -24,16 +24,16 @@ if __name__ == "__main__":
     train_ds = cityscapes_loader.cityscapesLoader(root=dataset_root_dir, split='train', img_size=(512, 1024), is_transform=True, is_sequence=is_sequence)
     val_ds = cityscapes_loader.cityscapesLoader(root=dataset_root_dir, split='val', img_size=(512, 1024), is_transform=True, is_sequence=is_sequence)
 
-    train_loader = torch.utils.data.DataLoader(train_ds, batch_size=2, shuffle=True, drop_last=False)
-    valid_loader = torch.utils.data.DataLoader(val_ds, batch_size=2, shuffle=False, drop_last=False)
+    train_loader = torch.utils.data.DataLoader(train_ds, batch_size=1, shuffle=True, drop_last=True)
+    valid_loader = torch.utils.data.DataLoader(val_ds, batch_size=1, shuffle=False, drop_last=True)
 
     encoder_blocks = SmallShallow_NetworkSize.encoder_blocks
     decoder_blocks = SmallShallow_NetworkSize.decoder_blocks
 
     config = Temporal_ResUNetConfig(
-        encoder_blocks=encoder_blocks, 
+        encoder_blocks=encoder_blocks,
         decoder_blocks=decoder_blocks,
-        temporal_cell= Conv2dRNNCell
+        temporal_cell= Conv2dGRUCell
         )
 
     temp_unet = Temporal_UNET_Template.Temporal_UNet(config)
@@ -42,7 +42,7 @@ if __name__ == "__main__":
     criterion = nn.CrossEntropyLoss()
 
 
-    epochs=50
+    epochs=100
     temp_unet_trainer = utils.train_eval.Trainer(
             temp_unet, temp_unet_optim, criterion,
             train_loader, valid_loader, "cityscapes", epochs,

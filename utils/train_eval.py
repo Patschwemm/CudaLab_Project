@@ -47,7 +47,7 @@ class Trainer():
         # needed for plotting the losses and other metrics
         if tboard_name == None:
             self.tboard = utils.make_tboard_logs(
-                f"{self.model.config.__class__.__name__}_{self.model.config.temporal_cell.__name__}/" 
+                f"{self.model.config.__class__.__name__}_{self.model.config.temporal_cell.__name__}/"
                 + self.model_sizes_string)
         else:
             self.tboard = utils.make_tboard_logs(tboard_name)
@@ -56,7 +56,7 @@ class Trainer():
         self.print_intermediate_vals = print_intermediate_vals
         self.start_epoch = start_epoch
 
-        
+
 
         # losses
         self.train_loss = []
@@ -148,18 +148,18 @@ class Trainer():
 
         for epoch in range(self.epochs):
 
-            # # validation epoch
-            # self.model.eval()  # important for dropout and batch norms
-            # mIoU, mAcc, loss = self.eval_model()
-            # self.valid_mIoU.append(mIoU)
-            # self.valid_mAcc.append(mAcc)
-            # self.val_loss.append(loss)
+            # validation epoch
+            self.model.eval()  # important for dropout and batch norms
+            mIoU, mAcc, loss = self.eval_model()
+            self.valid_mIoU.append(mIoU)
+            self.valid_mAcc.append(mAcc)
+            self.val_loss.append(loss)
 
-            # # if we want to use tensorboard
-            # if self.tboard !=None:
-            #     self.tboard.add_scalar(f'mIoU/Valid', mIoU, global_step=epoch+self.start_epoch)
-            #     self.tboard.add_scalar(f'mAcc/Valid', mAcc, global_step=epoch+self.start_epoch)
-            #     self.tboard.add_scalar(f'Loss/Valid', loss, global_step=epoch+self.start_epoch)
+            # if we want to use tensorboard
+            if self.tboard !=None:
+                self.tboard.add_scalar(f'mIoU/Valid', mIoU, global_step=epoch+self.start_epoch)
+                self.tboard.add_scalar(f'mAcc/Valid', mAcc, global_step=epoch+self.start_epoch)
+                self.tboard.add_scalar(f'Loss/Valid', loss, global_step=epoch+self.start_epoch)
 
             # training epoch
             self.model.train()  # important for dropout and batch norms
@@ -194,12 +194,12 @@ class Trainer():
             self.optimizer,
             current_epoch,
             [self.train_loss, self.val_loss, self.loss_iters, self.valid_mIoU, self.valid_mAcc, self.conf_mat],
-            savepath=(self.save_folder_path + self.model_sizes_string + f"{self.train_set}_epoch_{self.start_epoch}.pth"),
+            savepath=(self.save_folder_path + self.model_sizes_string + f"{self.train_set}_epoch_{current_epoch}.pth"),
             )
         # save model configs as json
-        self.model.config.save(path=self.save_folder_path 
-                               + self.model_sizes_string 
-                               + f"{self.train_set}_epoch_{self.start_epoch}.json")
+        self.model.config.save(path=self.save_folder_path
+                               + self.model_sizes_string
+                               + f"{self.train_set}.json")
 
 
     def load_model(self, load_from):
@@ -208,8 +208,8 @@ class Trainer():
         self.model, self.optimizer, self.start_epoch, self.stats = utils.load_model(
             self.model,
             self.optimizer,
-            (self.save_folder_path 
-            + self.model_sizes_string 
+            (self.save_folder_path
+            + self.model_sizes_string
             + f"{self.train_set}_epoch_{self.start_epoch}.pth"),
             self.device
         )
