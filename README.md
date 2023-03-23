@@ -18,15 +18,16 @@ Follow install from given github for python.
 
 ### TO-DO subtasks
 
-- [] Implement Accuracy correctly (mAcc)
+- [x] Implement Accuracy correctly (mAcc)
 - [x] Implement mIoU -> Metric apparently correctly implemented, but training on COCO doesn't show much improvement. Bug? Or requires more training?
 - [x] City-scapes dataset sequencing
     - [x] Pytorch dataset implementation -> Sort and sequence
     - [x] 5 options for the ground truth (Since it's 5 frame sequences)
 - [] Temporal Augmentation
-- [] Get baseline results (Frame by frame)
+- [x] Get baseline results (Frame by frame)
 - [] Get results sequenced manner
 - [] ConvGRU, ConvLSTM instead of ConvRNN for the COCO
 - [] Encoder-Decoder (Resnet & VGG-Like)
 - [] Check "temporal regularization"
 - [] (Optional) U-Net (DRU and SRU) 
+- [] Generate images and notebook for results

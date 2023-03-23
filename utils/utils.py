@@ -9,6 +9,7 @@ import shutil
 from torch.utils.tensorboard import SummaryWriter
 
 
+
 def smooth(f, K=5):
     """ Smoothing a function using a low-pass filter (mean) of size K """
     kernel = np.ones(K) / K
@@ -43,7 +44,7 @@ def plot_confusion(confusion_matrix, xy_ticklabels=None):
 
 def plot_results(ax, train_result, train_eval_result, mode=None):
     """
-    Plots a graph side by side, used for train and eval graphs (either accuracy or loss). 
+    Plots a graph side by side, used for train and eval graphs (either accuracy or loss).
     Mode sets the strings for the graph plots
     """
     plt.style.use('seaborn')
@@ -68,7 +69,7 @@ def plot_results(ax, train_result, train_eval_result, mode=None):
 
 def get_loader(dataset, dataset_name, train_transform=T.ToTensor(), test_transform=T.ToTensor(), BATCH_SIZE=64):
     """
-    Returns the train and test loader for a given dataset. 
+    Returns the train and test loader for a given dataset.
     Define that dataset name and dataset function (torchvision). Optionally give a transform and batch_size
     """
 
@@ -94,29 +95,30 @@ def get_loader(dataset, dataset_name, train_transform=T.ToTensor(), test_transfo
 
     # enable pin memory for faster transfer between CPU and GPU
     train_loader = torch.utils.data.DataLoader(
-        train_set, 
-        batch_size=BATCH_SIZE, 
-        shuffle=True, 
+        train_set,
+        batch_size=BATCH_SIZE,
+        shuffle=True,
         pin_memory=True
         )
     test_loader = torch.utils.data.DataLoader(
-        test_set, 
-        batch_size=BATCH_SIZE, 
-        shuffle=False, 
+        test_set,
+        batch_size=BATCH_SIZE,
+        shuffle=False,
         pin_memory=True
         )
-    
+
     num_labels = torch.unique(train_set.target)
     print(num_labels)
 
     return train_loader, test_loader, num_labels
 
-def save_model(model, optimizer, epoch, stats, model_name=""):
+def save_model(model, optimizer, epoch, stats, savepath=None):
     """ Saving model checkpoint """
 
     if(not os.path.exists("models")):
         os.makedirs("models")
-    savepath = f"models/checkpoint_{model.__class__.__name__}{model_name}_epoch_{epoch}.pth"
+    if savepath == None:
+        savepath = f"models/checkpoint_{model.__class__.__name__}_epoch_{epoch}.pth"
 
     torch.save({
         'epoch': epoch,
@@ -153,6 +155,23 @@ def load_model(model, optimizer, savepath, device):
     optimizer_to(optimizer, device)
 
     return model, optimizer, epoch, stats
+
+def load_model_by_params(model, optimizer, savepath, device):
+    """ Loading pretrained checkpoint """
+
+    checkpoint = torch.load(savepath, map_location=device)
+    print(len(checkpoint['model_state_dict']))
+    model_list = model.named_parameters()
+    for (name, module), c in zip(model_list, checkpoint['model_state_dict']):
+        print(name, c)
+
+    # model.load_state_dict(checkpoint['model_state_dict'])
+    # optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    # epoch = checkpoint["epoch"]
+    # stats = checkpoint["stats"]
+    # model = model.to(device)
+    # optimizer_to(optimizer, device)
+
 
 # Tensorboard config and writter init
 def make_tboard_logs(dirname):
