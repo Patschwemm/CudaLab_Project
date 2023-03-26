@@ -82,6 +82,7 @@ class cityscapesLoader(data.Dataset):
         version="cityscapes",
         test_mode=False,
         silent=False,
+        use_random_crop=False,
     ):
 
         self.root = root
@@ -95,6 +96,7 @@ class cityscapesLoader(data.Dataset):
         self.files = {}
         self.gt_idx = None
         self.is_sequence = is_sequence
+        self.use_random_crop = use_random_crop
         
         self.images_base = os.path.join(self.root, "leftImg8bit_sequence", self.split)
         self.annotations_base = os.path.join(self.root, "gtFine_sequence", self.split)
@@ -180,9 +182,28 @@ class cityscapesLoader(data.Dataset):
 
         imgs = []
         if self.is_sequence:
+
+            random_h = 0 
+            random_w = 0
+            p_crop = np.random.uniform(0, 1) < 0.4
+            p_flip = np.random.uniform(0, 1) < 0.5
+
+            if self.use_random_crop and p_crop:
+                # randomly select the coordinates of the crop
+                h, w = self.img_size
+                random_h = np.random.randint(0, 1024 - h)
+                random_w = np.random.randint(0, 2048 - w)            
+
             for img_path in img_paths[start_idx_sequence : start_idx_sequence + self.sequence_length]:
                 img = Image.open(img_path)
                 img = np.array(img, dtype=np.uint8)
+
+                if self.use_random_crop and p_crop:
+                    img = img[random_h : random_h + self.img_size[0], random_w : random_w + self.img_size[1], :]
+
+                if p_flip == True:
+                    img = np.fliplr(img)
+
                 imgs.append(img)
         else:
             img = Image.open(img_paths[19])
@@ -191,12 +212,11 @@ class cityscapesLoader(data.Dataset):
 
         lbl = Image.open(lbl_path)
         lbl = self.encode_segmap(np.array(lbl, dtype=np.uint8))
-        # # check if label exists on path
-        # if os.path.exists(lbl_path):
-        #     lbl = Image.open(lbl_path)
-        #     lbl = self.encode_segmap(np.array(lbl, dtype=np.uint8))
-        # else:
-        #     lbl = np.zeros((img.shape[0], img.shape[1]), dtype=np.uint8)
+
+        if self.use_random_crop and p_crop:
+            lbl = lbl[random_h : random_h + self.img_size[0], random_w : random_w + self.img_size[1]]
+        if p_flip == True:
+            lbl = np.fliplr(lbl)
 
         if self.is_transform:
             for i in range(len(imgs)):
