@@ -81,8 +81,9 @@ class UpsampleBlock(nn.Module):
         )
         self.conv_block = ConvBlock(channels, batch_norm)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x, temporal_state):
         x = self.upsample(x)
+        x = torch.cat([x, temporal_state], dim=1)
         x = self.conv_block(x)
         return x
 

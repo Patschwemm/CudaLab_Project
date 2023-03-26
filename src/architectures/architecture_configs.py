@@ -2,8 +2,9 @@ from dataclasses import dataclass
 from dataclasses import asdict
 import torch
 import torch.nn as nn
-from . import vanilla_modules 
-from . import resnet_modules 
+from . import vanilla_modules
+from . import resnet_modules
+from . import convnext_modules
 from .temporal_modules import Conv2dRNNCell, Conv2dGRUCell
 import json
 
@@ -31,7 +32,7 @@ class CustomEncoder(json.JSONEncoder):
 @dataclass
 class Temporal_TemplateUNetConfig(Config):
     """Configuration for U-Net."""
-    # these are the dimensions for concatenation, 
+    # these are the dimensions for concatenation,
     # if summing is wanted, reduce the first dimension for each decoder block
     encoder_blocks: list[list[int]]
     decoder_blocks: list[list[int]]
@@ -44,20 +45,26 @@ class Temporal_TemplateUNetConfig(Config):
     use_pooling: bool = False
     batch_norm: bool = True
 
-@dataclass 
+@dataclass
 class Temporal_VanillaUNetConfig(Temporal_TemplateUNetConfig):
     initblock: nn.Module = vanilla_modules.ConvBlock
     downsampleblock: nn.Module = vanilla_modules.DownsampleBlock
     upsampleblock: nn.Module = vanilla_modules.UpsampleBlock
     temporal_cell: nn.Module = Conv2dGRUCell
 
-@dataclass 
+@dataclass
 class Temporal_ResUNetConfig(Temporal_TemplateUNetConfig):
     initblock: nn.Module = resnet_modules.ResNet18Initblock
     downsampleblock: nn.Module = resnet_modules.Resnet18Downblock
     upsampleblock: nn.Module = resnet_modules.Resnet18Upblock
     temporal_cell: nn.Module = Conv2dGRUCell
 
+@dataclass
+class Temporal_ConvUNextConfig(Temporal_TemplateUNetConfig):
+    initblock: nn.Module = convnext_modules.ConvNextLikeInitblock
+    downsampleblock: nn.Module = convnext_modules.ConvNextDownblock
+    upsampleblock: nn.Module = convnext_modules.ConvNextUpblock
+    temporal_cell: nn.Module = Conv2dGRUCell
 
 @dataclass
 class Original_Dimensions:

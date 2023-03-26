@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from .temporal_modules import Conv2dGRUCell, Conv2dRNNCell
-from .architecture_configs import * 
+from .architecture_configs import *
 
 
 class Temporal_UNetEncoder(nn.Module):
@@ -17,6 +17,7 @@ class Temporal_UNetEncoder(nn.Module):
         temporal_cell = Conv2dGRUCell,
     ) -> None:
         super(Temporal_UNetEncoder, self).__init__()
+
         self.in_block = InitBlock(block_dims[0], batch_norm)
         self.downsample_blocks = nn.ModuleList(
             [DownsampleBlock(channels, use_pooling, batch_norm) for channels in block_dims[1:]]
@@ -26,7 +27,7 @@ class Temporal_UNetEncoder(nn.Module):
         for channels in block_dims:
             in_size = channels[-1]
             temporal_conv.append(temporal_cell(input_size=in_size, hidden_size=in_size, kernel_size=3))
-        
+
         self.temporal_conv = nn.ModuleList(temporal_conv)
 
     def freeze_temporal(self):
@@ -42,7 +43,7 @@ class Temporal_UNetEncoder(nn.Module):
             # pass through RNN append rnn states for concatenation
             temporal_states.append(conv_temp_cell(x))
             x = block(x)
-        
+
         # pass through the last conv rnn state
         x = self.temporal_conv[-1](x)
 
@@ -65,7 +66,7 @@ class Temporal_UNetDecoder(nn.Module):
         self.upsample_blocks = nn.ModuleList(
             [UpsampleBlock(channels, batch_norm, concat_hidden) for channels in block_dims[1:]]
         )
-        
+
         self.out_block = nn.Conv2d(
             in_channels=block_dims[-1][-1],
             out_channels=out_channels,
@@ -78,11 +79,10 @@ class Temporal_UNetDecoder(nn.Module):
     def forward(self, x: torch.Tensor, temporal_states: list[torch.Tensor]) -> torch.Tensor:
         for block, temporal_conv in zip(self.upsample_blocks, reversed(temporal_states)):
             if self.concat_hidden:
-                x = block.upsample(x)
+                x = block(x, temporal_conv)
                 # temporal_conv = center_pad(temporal_conv, x.shape[2:])
-                x = torch.cat([x, temporal_conv], dim=1)
-                x = block.conv_block(x)
             else:
+                # currently deprecated
                 x = block.upsample(x)
                 # temporal_conv = center_pad(temporal_conv, x.shape[2:])
                 x = x + temporal_conv
@@ -101,8 +101,8 @@ class Temporal_UNet(nn.Module):
         self.encoder = Temporal_UNetEncoder(
             config.initblock,
             config.downsampleblock,
-            config.encoder_blocks[0], 
-            config.use_pooling, 
+            config.encoder_blocks[0],
+            config.use_pooling,
             config.batch_norm,
             config.temporal_cell
         )
@@ -136,7 +136,7 @@ class Temporal_UNet(nn.Module):
         torch.save(self.state_dict(), path)
 
     def replace_outchannels(self,  out_channels):
-        # replaces the last layer of the outchannels, such that the model can be adjusted to only 
+        # replaces the last layer of the outchannels, such that the model can be adjusted to only
         # output a certain amount of layers
         self.decoder.out_block = nn.Conv2d(
             in_channels=self.out_block_in_channels,
