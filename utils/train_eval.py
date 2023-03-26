@@ -14,7 +14,7 @@ class Trainer():
 
     def __init__(self,  model, optimizer, criterion, train_loader,
         valid_loader, train_set, epochs, scheduler=None, sequence=True, tboard_name=None, start_epoch=0,
-        all_labels=None, print_intermediate_vals=False, load_from=None) -> None:
+        all_labels=None, print_intermediate_vals=False, gradient_accumulation=16) -> None:
         super().__init__()
 
         # needed for training
@@ -27,6 +27,7 @@ class Trainer():
         self.valid_loader = valid_loader
         self.sequence = sequence
         self.train_set = train_set
+        self.gradient_accumulation = gradient_accumulation
 
         if self.train_set == "coco":
             self.train_fn = self.coco_train
@@ -71,9 +72,10 @@ class Trainer():
 
         loss_list = []
         progress_bar = tqdm(enumerate(self.train_loader), total=len(self.train_loader))
+        # grad accumulator running variable
+        grad_count=0
         for i, (images, labels) in progress_bar:
             # Clear gradients w.r.t. parameters
-            self.optimizer.zero_grad()
 
             preds, loss, seg_mask = self.train_fn(images, labels)
 
@@ -83,8 +85,15 @@ class Trainer():
             # Getting gradients w.r.t. parameters
             loss.backward()
 
+            grad_count+= images.shape[0]
+
             # Updating parameters
-            self.optimizer.step()
+            if grad_count >= self.gradient_accumulation:
+                self.optimizer.step()
+                self.optimizer.zero_grad()
+                grad_count = 0
+                print("stepped")
+
 
             progress_bar.set_description(f"Epoch {current_epoch+1} Iter {i+1}: loss {loss.item():.5f}. ")
 

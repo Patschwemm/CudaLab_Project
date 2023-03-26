@@ -33,7 +33,7 @@ class ResNetConvBlock(nn.Module):
         if self.use_act:
             x = self.relu(x)
         return x
-    
+
 class ResNet18Initblock(nn.Module):
 
     def __init__(self, block, batch_norm = True) -> None:
@@ -68,7 +68,7 @@ class ResNet18Block(nn.Module):
         out = out + residual
         out = self.relu(out)
         return out
-    
+
 
 class Resnet18Upblock(nn.Module):
 
@@ -83,12 +83,13 @@ class Resnet18Upblock(nn.Module):
             stride=2,
         )
         self.conv_block = ResNet18Block(block=block, batch_norm=batch_norm)
-    
-    def forward(self, x):
+
+    def forward(self, x, temporal_state):
         x = self.upsample(x)
+        x = torch.cat([x, temporal_state], dim=1)
         x = self.conv_block(x)
         return x
-    
+
 class Resnet18Downblock(nn.Module):
 
     def __init__(self, block, use_pooling, batch_norm = True) -> None:
@@ -104,7 +105,7 @@ class Resnet18Downblock(nn.Module):
                 stride=2,
             )
         self.resnet18block = ResNet18Block(block=block, batch_norm=batch_norm)
-    
+
     def forward(self, x):
         x = self.downsample(x)
         x = self.resnet18block(x)
