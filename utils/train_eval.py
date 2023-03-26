@@ -92,7 +92,6 @@ class Trainer():
                 self.optimizer.step()
                 self.optimizer.zero_grad()
                 grad_count = 0
-                print("stepped")
 
 
             progress_bar.set_description(f"Epoch {current_epoch+1} Iter {i+1}: loss {loss.item():.5f}. ")
