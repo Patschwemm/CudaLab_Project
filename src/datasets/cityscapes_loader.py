@@ -181,12 +181,12 @@ class cityscapesLoader(data.Dataset):
         start_idx_sequence = 19 - random_seq_idx
 
         imgs = []
+        p_flip = np.random.uniform(0, 1) < 0.5
+        p_crop = np.random.uniform(0, 1) < 0.4
         if self.is_sequence:
 
             random_h = 0 
             random_w = 0
-            p_crop = np.random.uniform(0, 1) < 0.4
-            p_flip = np.random.uniform(0, 1) < 0.5
 
             if self.use_random_crop and p_crop:
                 # randomly select the coordinates of the crop
@@ -208,6 +208,14 @@ class cityscapesLoader(data.Dataset):
         else:
             img = Image.open(img_paths[19])
             img = np.array(img, dtype=np.uint8)
+            if self.use_random_crop and p_crop:
+                # randomly select the coordinates of the crop
+                h, w = self.img_size
+                random_h = np.random.randint(0, 1024 - h)
+                random_w = np.random.randint(0, 2048 - w)
+                img = img[random_h : random_h + self.img_size[0], random_w : random_w + self.img_size[1], :]
+            if p_flip == True:
+                img = np.fliplr(img)
             imgs.append(img)
 
         lbl = Image.open(lbl_path)
