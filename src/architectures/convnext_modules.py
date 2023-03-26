@@ -73,19 +73,19 @@ class ConvNextLikeInitblock(nn.Module):
 
     def forward(self, x):
         x = self.block1(x)
-        x = self.block2(x)
+        x = self.convnextblock(x)
         return x
 
 class ConvNextUpblock(nn.Module):
 
     def __init__(self, block, batch_norm = True, concat_hidden = True) -> None:
         super().__init__()
+        self.norm = nn.BatchNorm2d(block[0])
         if concat_hidden:
             C = block[0] // 2
         else:
             C = block[0]
-        self.norm = nn.BatchNorm2d(C)
-        self.up = nn.ConvTranspose2d(block[0], block[2] // 2, kernel_size=2, stride=2)
+        self.up = nn.ConvTranspose2d(block[0], block[0] // 2, kernel_size=2, stride=2)
         self.gate = nn.Linear(C, 3 * C)
         self.linear1 = nn.Linear(C, C)
         self.linear2 = nn.Linear(C, C)
@@ -95,10 +95,10 @@ class ConvNextUpblock(nn.Module):
     def forward(self, x1: torch.Tensor, x2: torch.Tensor) -> torch.Tensor:
         x1 = self.norm(x1)
         x1 = self.up(x1)
+
         # [N, C, H, W]
         diff_y = x2.size()[2] - x1.size()[2]
         diff_x = x2.size()[3] - x1.size()[3]
-
         # padding_left, padding_right, padding_top, padding_bottom
         x1 = F.pad(x1, [diff_x // 2, diff_x - diff_x // 2,
                         diff_y // 2, diff_y - diff_y // 2])
@@ -137,30 +137,4 @@ class ConvNextDownblock(nn.Module):
         x = self.downsample(x)
         x = self.convnextblock(x)
         return x
-
-class LayerNorm(nn.Module):
-    """ LayerNorm that supports two data formats: channels_last (default) or channels_first.
-    The ordering of the dimensions in the inputs. channels_last corresponds to inputs with
-    shape (batch_size, height, width, channels) while channels_first corresponds to inputs
-    with shape (batch_size, channels, height, width).
-    """
-    def __init__(self, normalized_shape, eps=1e-6, data_format="channels_last"):
-        super().__init__()
-        self.weight = nn.Parameter(torch.ones(normalized_shape))
-        self.bias = nn.Parameter(torch.zeros(normalized_shape))
-        self.eps = eps
-        self.data_format = data_format
-        if self.data_format not in ["channels_last", "channels_first"]:
-            raise NotImplementedError
-        self.normalized_shape = (normalized_shape, )
-
-    def forward(self, x):
-        if self.data_format == "channels_last":
-            return F.layer_norm(x, self.normalized_shape, self.weight, self.bias, self.eps)
-        elif self.data_format == "channels_first":
-            u = x.mean(1, keepdim=True)
-            s = (x - u).pow(2).mean(1, keepdim=True)
-            x = (x - u) / torch.sqrt(s + self.eps)
-            x = self.weight[:, None, None] * x + self.bias[:, None, None]
-            return
 

@@ -269,6 +269,6 @@ class Trainer():
         else:
 
             outputs = self.model(images)
-            loss = self.criterion(outputs.squeeze(), seg_mask.squeeze())
+            loss = self.criterion(outputs.squeeze(1), seg_mask.squeeze(1))
 
         return outputs, loss, seg_mask

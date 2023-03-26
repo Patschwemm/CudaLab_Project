@@ -17,7 +17,7 @@ from architectures.architecture_configs import *
 if __name__ == "__main__":
     utils.utils.set_random_seed()
 
-    is_sequence = True
+    is_sequence = False
 
     dataset_root_dir = "/home/nfs/inf6/data/datasets/cityscapes/"
 
@@ -51,13 +51,13 @@ if __name__ == "__main__":
     temp_unet_trainer = utils.train_eval.Trainer(
             temp_unet, temp_unet_optim, criterion,
             train_loader, valid_loader, "cityscapes", epochs,
-            sequence=True, all_labels=20, start_epoch=15)
+            sequence=is_sequence, all_labels=20, start_epoch=0)
 
     # temp_unet_trainer.save_model(0)
 
-    load_model = True
-    if load_model:
-        temp_unet_trainer.load_model("cityscapes")
+    # load_model = True
+    # if load_model:
+    #     temp_unet_trainer.load_model("cityscapes")
 
 
     temp_unet_trainer.train_model()
