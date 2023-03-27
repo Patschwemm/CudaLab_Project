@@ -107,6 +107,7 @@ class UNet(nn.Module):
         x = x.squeeze(1)
         x, hidden_states = self.encoder(x)
         x = self.decoder(x, hidden_states)
+        x = x.unsqueeze(1)
         return x
 
     def save(self, path: str) -> None:
