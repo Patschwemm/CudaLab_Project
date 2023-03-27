@@ -3,86 +3,58 @@ import torch.nn as nn
 from dataclasses import dataclass
 from typing import Union
 from pathlib import Path
-from vanilla_modules import * 
-from temporal_modules import *
+from architectures.vanilla_modules import * 
+from architectures.temporal_modules import *
 
 
-@dataclass
-class RNN_UNetConfig:
-    """Configuration for U-Net."""
-    out_channels: int = 91
-    encoder_blocks: list[list[int]] = [[3, 64, 64], [64, 128, 128], [128, 256, 256]],
-    # these are the dimensions for concatenation, if summing is wanted, reduce the first dimension for each block
-    decoder_blocks: list[list[int]] = [[512, 256, 256], [256, 128, 128], [128, 64, 64]],
-    concat_hidden: bool = True
-    use_pooling: bool = False
-    batch_norm: bool = False
-    temporal_cell: Conv2dRNNCell
-
-
-
-class RNN_UNetEncoder(nn.Module):
+class UNetEncoder(nn.Module):
     """Encoder part of U-Net."""
 
     def __init__(
         self,
-        blocks: tuple[tuple[int, ...]],
+        InitBlock: nn.Module,
+        DownsampleBlock: nn.Module,
+        block_dims: tuple[tuple[int, ...]],
         use_pooling: bool = False,
         batch_norm: bool = True,
     ) -> None:
+        super(UNetEncoder, self).__init__()
 
-        super(RNN_UNetEncoder, self).__init__()
-        self.in_block = ConvBlock(blocks[0], batch_norm)
+        self.in_block = InitBlock(block_dims[0], batch_norm)
         self.downsample_blocks = nn.ModuleList(
-            [DownsampleBlock(channels, use_pooling, batch_norm) for channels in blocks[1:]]
+            [DownsampleBlock(channels, use_pooling, batch_norm) for channels in block_dims[1:]]
         )
 
-        temporal_conv = []
-        for channels in blocks:
-            in_size = channels[-1]
-            temporal_conv.append(Conv2dRNNCell(input_size=in_size, hidden_size=in_size, kernel_size=3))
-        
-        self.temporal_conv = nn.ModuleList(temporal_conv)
-
-    def freeze_temporal(self):
-        self.temporal_conv = self.temporal_conv.requires_grad_(False)
-
+       
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.in_block(x)
+        x = self.in_block(x)    
 
-        skip_connect = []
-        temporal_states = []
-        for block, conv_temp_cell in zip(self.downsample_blocks, self.temporal_conv[:-1]):
-            # skip_connect.append(x)
-            # pass through RNN 
-            temporal_states.append(conv_temp_cell(x))
+        hidden_states = []
+        for block in self.downsample_blocks:
+            hidden_states.append(x)
             x = block(x)
-            # append rnn states for concatenation
-        
-        # pass through the last conv rnn state
-        x = self.temporal_conv[-1](x)
 
-        return x, skip_connect, temporal_states
+        return x, hidden_states
 
-
-class RNN_UNetDecoder(nn.Module):
+class UNetDecoder(nn.Module):
     """Decoder part of U-Net."""
 
     def __init__(
         self,
+        UpsampleBlock: nn.Module,
         out_channels: int,
-        blocks: tuple[tuple[int, ...]],
+        block_dims: tuple[tuple[int, ...]],
         batch_norm: bool = True,
         concat_hidden: bool = True,
     ) -> None:
-        super(RNN_UNetDecoder, self).__init__()
-        
+        super(UNetDecoder, self).__init__()
+
         self.upsample_blocks = nn.ModuleList(
-            [UpsampleBlock(channels, batch_norm, concat_hidden) for channels in blocks[1:]]
+            [UpsampleBlock(channels, batch_norm, concat_hidden) for channels in block_dims[1:]]
         )
         
         self.out_block = nn.Conv2d(
-            in_channels=blocks[-1][-1],
+            in_channels=block_dims[-1][-1],
             out_channels=out_channels,
             kernel_size=3,
             padding=1,
@@ -90,38 +62,37 @@ class RNN_UNetDecoder(nn.Module):
 
         self.concat_hidden = concat_hidden
 
-    def forward(self, x: torch.Tensor, temporal_states: list[torch.Tensor]) -> torch.Tensor:
-        # for block, h, conv_rnn in zip(self.upsample_blocks, reversed(hidden_states), temporal_states):
-        for block, temporal_conv in zip(self.upsample_blocks, reversed(temporal_states)):
+    def forward(self, x: torch.Tensor, hidden_states: list[torch.Tensor]) -> torch.Tensor:
+        for block, h in zip(self.upsample_blocks, reversed(hidden_states)):
             if self.concat_hidden:
                 x = block.upsample(x)
-                # temporal_conv = center_pad(temporal_conv, x.shape[2:])
-                
-                x = torch.cat([x, temporal_conv], dim=1)
+                h = center_pad(h, x.shape[2:])
+                x = torch.cat([x, h], dim=1)
                 x = block.conv_block(x)
             else:
                 x = block.upsample(x)
-                # temporal_conv = center_pad(temporal_conv, x.shape[2:])
-                x = x + temporal_conv
+                h = center_pad(h, x.shape[2:])
+                x = x + h
                 x = block.conv_block(x)
-
         return self.out_block(x)
 
 
-class RNN_UNet(nn.Module):
+class UNet(nn.Module):
     """U-Net segmentation model."""
 
-    def __init__(self, config: RNN_UNetConfig) -> None:
-        super(RNN_UNet, self).__init__()
-        self.config = config
+    def __init__(self, config) -> None:
+        super(UNet, self).__init__()
 
-        self.encoder = RNN_UNetEncoder(
+        self.config = config
+        self.encoder = UNetEncoder(
+            config.initblock,
+            config.downsampleblock,
             config.encoder_blocks[0], 
             config.use_pooling, 
-            config.batch_norm
+            config.batch_norm,
         )
-
-        self.decoder = RNN_UNetDecoder(
+        self.decoder = UNetDecoder(
+            config.upsampleblock,
             config.out_channels,
             config.decoder_blocks[0],
             config.batch_norm,
@@ -133,21 +104,10 @@ class RNN_UNet(nn.Module):
         self.out_block_in_channels = config.decoder_blocks[0][-1][-1]
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # loop over sequence
-        outputs = []
-        # reset hidden state for a new sequence
-        
-        for i, temp_conv_cell in enumerate(self.encoder.temporal_conv):
-            
-            temp_conv_cell.reset_h(x[:, 0], i)
-        # x is Batch x Sequence x Channel x Height x Width
-        for i in range(x.shape[1]):
-            out, skip_connect, temporal_states = self.encoder(x[:, i])
-            out = self.decoder(out, temporal_states)
-            outputs.append(out)
-        
-        outputs = torch.stack(outputs, dim=1)
-        return outputs
+        x = x.squeeze(1)
+        x, hidden_states = self.encoder(x)
+        x = self.decoder(x, hidden_states)
+        return x
 
     def save(self, path: str) -> None:
         torch.save(self.state_dict(), path)
@@ -162,5 +122,39 @@ class RNN_UNet(nn.Module):
             padding=1,
         )
 
-    def freeze_temporal(self):
-        self.encoder.freeze_temporal()
+    # @classmethod
+    # def from_pretrained(cls, path: str, config: Union[UNetConfig, str, None] = None) -> "UNet":
+    #     path = Path(path)
+
+    #     if config is None:
+    #         config = UNetConfig.from_file(path.parent / "model.json")
+    #     elif not isinstance(config, UNetConfig):
+    #         config = UNetConfig.from_file(config)
+
+    #     model = cls(config)
+    #     model.load_state_dict(torch.load(path))
+    #     return model
+
+def center_pad(
+    x: torch.Tensor,
+    size: tuple[int, ...],
+    offset: tuple[int, ...] = 0,
+    mode: str = "constant",
+    value: float = 0,
+) -> torch.Tensor:
+    """Center pad (or crop) nd-Tensor.
+    Args:
+        x (torch.Tensor): The Tensor to pad. The last `len(size)` dimensions will be padded.
+        size (tuple[int, ...]): The desired pad size.
+        offset (tuple[int, ...], optional): Shift the Tensor while padding. Defaults to :math:`0`.
+        mode (str): Padding mode. Defaults to "constant".
+        value (float): Padding value. Defaults to :math:`0`.
+    """
+    # offset gets subtracted from the left and added to the right
+    offset = (torch.LongTensor([offset]) * torch.LongTensor([[-1], [1]])).flip(1)
+    # compute the excess in each dim (negative val -> crop, positive val -> pad)
+    excess = torch.Tensor([(size[-i] - x.shape[-i]) / 2 for i in range(1, len(size) + 1)])
+    # floor excess on left side, ceil on right side, add offset
+    pad = torch.stack([excess.floor(), excess.ceil()], dim=0).long() + offset
+
+    return torch.nn.functional.pad(x, tuple(pad.T.flatten()), mode, value)
