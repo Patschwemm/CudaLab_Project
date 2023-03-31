@@ -7,6 +7,11 @@ import numpy as np
 import torch
 from matplotlib import pyplot as plt
 from matplotlib import colors
+import shutil
+import os
+import torchvision
+import imageio
+import PIL
 # from torchvision.utils import draw_segmentation_masks
 from src.datasets.cityscapes_loader import cityscapesLoader
 
@@ -356,4 +361,116 @@ class CityscapesVisualizer(object):
         img = img.cpu().permute(1, 2, 0).numpy()
         return img
         
+@torch.no_grad()
+def vis_seq(model, loader):
+    visualizer = vis.CityscapesVisualizer()
+    model.eval()
+    for i, (imgs, targets) in enumerate(loader):
+        imgs = imgs.cuda()
+        preds = model(imgs)
+        print(preds.shape)
+        for i in range(preds.shape[0]):
+            decoded_seq = get_decoded_img_seq(preds[i])
 
+            for j in range(len(decoded_seq)):
+                plt.imshow(decoded_seq[j])
+                plt.show()
+
+            break
+        break
+    return 
+
+@torch.no_grad()
+def save_vis_seq(model, loader, model_name="default"):
+    if not os.path.exists("imgs"):
+        os.makedirs("imgs")
+    if not os.path.exists(f"imgs/{model_name}"):
+        os.makedirs(f"imgs/{model_name}")
+
+    visualizer = CityscapesVisualizer()
+    model.eval()
+    for k, (imgs, targets) in enumerate(loader):
+        if not os.path.exists(f"imgs/{model_name}/{k}"):
+            os.makedirs(f"imgs/{model_name}/{k}")
+        if not os.path.exists(f"imgs/{model_name}/{k}/original"):
+            os.makedirs(f"imgs/{model_name}/{k}/original")
+        if not os.path.exists(f"imgs/{model_name}/{k}/predicted"):
+            os.makedirs(f"imgs/{model_name}/{k}/predicted")
+        imgs = imgs.cuda()
+        preds = model(imgs)
+        print(f"{k}: " + str(preds.shape))
+        for i in range(preds.shape[0]):
+
+            decoded_seq = get_decoded_img_seq(preds[i])
+
+            for j in range(len(decoded_seq)):
+                torchvision.utils.save_image(torch.from_numpy(decoded_seq[j].transpose(2,0,1)), os.path.join(os.getcwd(), "imgs", f"{model_name}", f"{k}", "predicted", f"imgs_{j}.png"))
+
+                mean = torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1)
+                std = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1)
+                unnorm_imgs = imgs.cpu() * std + mean
+
+                torchvision.utils.save_image(unnorm_imgs[i, j], os.path.join(os.getcwd(), "imgs", f"{model_name}", f"{k}", "original", f"imgs_{j}.png"))
+
+        if k > 20:
+            break
+
+    return 
+
+def get_decoded_img_seq(preds):
+    result = []
+    visualizer = CityscapesVisualizer()
+    predicted_class = torch.argmax(preds, dim=1)
+    for j in range(preds.shape[0]):
+        decoded_pred = visualizer.decode_segmap(predicted_class[j].cpu().numpy())
+        result.append(decoded_pred)
+        #torchvision.utils.save_image(torch.from_numpy(decoded_pred.transpose(2,0,1)), os.path.join(os.getcwd(), "imgs", "training", f"imgs_{j}.png"))
+    return result
+
+
+
+
+def create_gifs(model_name="default", mode="side-by-side", transparency=0.5, fps=8):
+
+    allowed_modes = ["side-by-side", "overlay"]
+    if mode not in allowed_modes:
+        raise ValueError(f"mode must be one of {alloud_modes}")
+    imgs_root=f"imgs/{model_name}"
+    dirlist = [ item for item in os.listdir(imgs_root) if os.path.isdir(os.path.join(imgs_root, item)) ]
+    # remove "gifs"-folder from dirlist
+    dirlist = [item for item in dirlist if item != "gifs"]
+
+    if not os.path.exists(f"imgs/{model_name}/gifs"):
+        os.makedirs(f"imgs/{model_name}/gifs")
+
+
+
+    if mode == "side-by-side":
+        for i in range(len(dirlist)):
+            images = []
+            for j in range(12):
+                original = PIL.Image.open(f"imgs/{model_name}/{dirlist[i]}/original/imgs_{j}.png")
+                prediction = PIL.Image.open(f"imgs/{model_name}/{i}/predicted/imgs_{j}.png")
+
+                (width1, height1) = original.size
+                (width2, height2) = prediction.size
+
+                result_width = width1 + width2
+                result_height = max(height1, height2)
+
+                result = PIL.Image.new('RGB', (result_width, result_height))
+                result.paste(im=original, box=(0, 0))
+                result.paste(im=prediction, box=(width1, 0))
+                images.append(result)
+            imageio.mimsave(f"imgs/{model_name}/gifs/{i}.gif", images, fps=fps)
+
+    elif mode == "overlay":
+        for i in dirlist:
+            images = []
+            for j in range(12):
+                background = PIL.Image.open(f"imgs/{model_name}/{i}/original/imgs_{j}.png")
+                foreground  = PIL.Image.open(f"imgs/{model_name}/{i}/predicted/imgs_{j}.png")
+                foreground.putalpha(int(255*(1-transparency))) 
+                background.paste(foreground, (0, 0), mask=foreground)
+                images.append(background)
+            imageio.mimsave(f"imgs/{model_name}/gifs/{i}.gif", images, fps=fps)
