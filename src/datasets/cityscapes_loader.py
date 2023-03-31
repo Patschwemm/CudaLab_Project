@@ -82,7 +82,7 @@ class cityscapesLoader(data.Dataset):
         version="cityscapes",
         test_mode=False,
         silent=False,
-        use_random_crop=False,
+        use_augs=False,
     ):
 
         self.root = root
@@ -96,7 +96,7 @@ class cityscapesLoader(data.Dataset):
         self.files = {}
         self.gt_idx = None
         self.is_sequence = is_sequence
-        self.use_random_crop = use_random_crop
+        self.use_augs = use_augs
         
         self.images_base = os.path.join(self.root, "leftImg8bit_sequence", self.split)
         self.annotations_base = os.path.join(self.root, "gtFine_sequence", self.split)
@@ -181,14 +181,19 @@ class cityscapesLoader(data.Dataset):
         start_idx_sequence = 19 - random_seq_idx
 
         imgs = []
+
+        if self.use_augs:
+            p_flip = np.random.uniform(0, 1) < 0.5
+            p_crop = np.random.uniform(0, 1) < 0.4
+        else:
+            p_flip, p_crop = False, False
+
         if self.is_sequence:
 
             random_h = 0 
             random_w = 0
-            p_crop = np.random.uniform(0, 1) < 0.4
-            p_flip = np.random.uniform(0, 1) < 0.5
 
-            if self.use_random_crop and p_crop:
+            if self.use_augs and p_crop:
                 # randomly select the coordinates of the crop
                 h, w = self.img_size
                 random_h = np.random.randint(0, 1024 - h)
@@ -198,24 +203,32 @@ class cityscapesLoader(data.Dataset):
                 img = Image.open(img_path)
                 img = np.array(img, dtype=np.uint8)
 
-                if self.use_random_crop and p_crop:
+                if self.use_augs and p_crop:
                     img = img[random_h : random_h + self.img_size[0], random_w : random_w + self.img_size[1], :]
 
-                if p_flip == True:
+                if self.use_augs and p_flip:
                     img = np.fliplr(img)
 
                 imgs.append(img)
         else:
             img = Image.open(img_paths[19])
             img = np.array(img, dtype=np.uint8)
+            if self.use_augs and p_crop:
+                # randomly select the coordinates of the crop
+                h, w = self.img_size
+                random_h = np.random.randint(0, 1024 - h)
+                random_w = np.random.randint(0, 2048 - w)
+                img = img[random_h : random_h + self.img_size[0], random_w : random_w + self.img_size[1], :]
+            if self.use_augs and p_flip:
+                img = np.fliplr(img)
             imgs.append(img)
 
         lbl = Image.open(lbl_path)
         lbl = self.encode_segmap(np.array(lbl, dtype=np.uint8))
 
-        if self.use_random_crop and p_crop:
+        if self.use_augs and p_crop:
             lbl = lbl[random_h : random_h + self.img_size[0], random_w : random_w + self.img_size[1]]
-        if p_flip == True:
+        if self.use_augs and p_flip:
             lbl = np.fliplr(lbl)
 
         if self.is_transform:

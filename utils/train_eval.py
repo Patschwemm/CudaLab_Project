@@ -83,6 +83,7 @@ class Trainer():
             loss_list.append(loss.item())
 
             # Getting gradients w.r.t. parameters
+            loss = loss / self.gradient_accumulation
             loss.backward()
 
             grad_count+= images.shape[0]
@@ -92,7 +93,6 @@ class Trainer():
                 self.optimizer.step()
                 self.optimizer.zero_grad()
                 grad_count = 0
-                print("stepped")
 
 
             progress_bar.set_description(f"Epoch {current_epoch+1} Iter {i+1}: loss {loss.item():.5f}. ")
@@ -170,7 +170,7 @@ class Trainer():
                 self.tboard.add_scalar(f'mAcc/Valid', mAcc, global_step=epoch+self.start_epoch)
                 self.tboard.add_scalar(f'Loss/Valid', loss, global_step=epoch+self.start_epoch)
 
-            # training epoch
+            # # training epoch
             self.model.train()  # important for dropout and batch norms
             mean_loss, cur_loss_iters = self.train_epoch(epoch)
             self.scheduler.step(self.val_loss[-1])
